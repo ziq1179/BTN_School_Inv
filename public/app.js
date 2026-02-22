@@ -134,8 +134,27 @@ document.querySelectorAll('.nav-item').forEach(link => {
     link.addEventListener('click', e => {
         e.preventDefault();
         navigate(link.dataset.page);
+        closeSidebarMobile();
     });
 });
+
+// Mobile sidebar toggle
+function closeSidebarMobile() {
+    document.body.classList.remove('sidebar-open');
+    document.getElementById('sidebar-backdrop').setAttribute('aria-hidden', 'true');
+}
+function openSidebarMobile() {
+    document.body.classList.add('sidebar-open');
+    document.getElementById('sidebar-backdrop').setAttribute('aria-hidden', 'false');
+}
+function toggleSidebarMobile() {
+    document.body.classList.toggle('sidebar-open');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    backdrop.setAttribute('aria-hidden', document.body.classList.contains('sidebar-open') ? 'false' : 'true');
+}
+document.getElementById('btn-menu')?.addEventListener('click', toggleSidebarMobile);
+document.getElementById('sidebar-close')?.addEventListener('click', closeSidebarMobile);
+document.getElementById('sidebar-backdrop')?.addEventListener('click', closeSidebarMobile);
 
 // ── Modal Helpers ───────────────────────────────────────────────
 function openModal(id) {
