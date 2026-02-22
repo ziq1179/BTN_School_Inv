@@ -15,6 +15,14 @@ import transactionRoutes from './routes/transactions.js';
 
 const app = express();
 
+// Netlify: rewrite /.netlify/functions/api/* to /api/* so Express routes match
+app.use((req, res, next) => {
+    if (req.path.startsWith('/.netlify/functions/api')) {
+        req.url = '/api' + req.path.slice('/.netlify/functions/api'.length) + (req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '');
+    }
+    next();
+});
+
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
