@@ -23,9 +23,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// ESM __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// ESM __dirname - safe for Netlify (import.meta.url undefined when bundled)
+let __dirname;
+try {
+    const fn = fileURLToPath(import.meta.url);
+    __dirname = dirname(fn);
+} catch {
+    __dirname = join(process.cwd(), 'src');
+}
 
 // ── Middleware ──────────────────────────────────────────────────────────────
 app.use(cors({ origin: true, credentials: true }));
@@ -39,8 +44,10 @@ app.use(cookieSession({
     secure: process.env.NODE_ENV === 'production',
 }));
 
-// ── Serve Frontend ──────────────────────────────────────────────────────────
-app.use(express.static(join(__dirname, '../public')));
+// Serve static files only when NOT on Netlify (Netlify serves from publish dir)
+if (!process.env.NETLIFY) {
+    app.use(express.static(join(__dirname, '../public')));
+}
 
 // ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
