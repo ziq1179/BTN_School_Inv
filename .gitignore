@@ -1,0 +1,21 @@
+node_modules
+# Keep environment variables out of version control
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.db-journal
+prisma/dev.db
+/generated/prisma
+
+# Build & logs
+dist/
+.netlify/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

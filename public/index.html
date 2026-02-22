@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Inventory System</title>
+  <meta name="description" content="Premium school inventory management system for uniforms and books." />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="topographic-pattern">
+
+<!-- ── Sidebar ──────────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img src="/logo.png" alt="BY THE NUMB3RS" class="logo-icon-img" />
+    <div>
+      <div class="logo-title">BY THE NUMB<span class="numb3rs">3</span>RS</div>
+      <div class="logo-sub">School Inventory</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+      <span class="nav-icon">📊</span>
+      <span>Dashboard</span>
+    </a>
+    <a href="#" class="nav-item" data-page="items" id="nav-items">
+      <span class="nav-icon">📦</span>
+      <span>Inventory</span>
+    </a>
+    <a href="#" class="nav-item" data-page="categories" id="nav-categories">
+      <span class="nav-icon">🗂️</span>
+      <span>Categories</span>
+    </a>
+    <a href="#" class="nav-item" data-page="transactions" id="nav-transactions">
+      <span class="nav-icon">📋</span>
+      <span>Transactions</span>
+    </a>
+    <a href="#" class="nav-item" data-page="users" id="nav-users" style="display:none">
+      <span class="nav-icon">👥</span>
+      <span>Users</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-logo-center">
+    <img src="/logo.png" alt="BY THE NUMB3RS" class="sidebar-logo-img" />
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="server-status" id="server-status">
+      <span class="status-dot"></span>
+      <span>Server Connected</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<main class="main-content">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title" id="page-title">Dashboard</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="live-clock" id="live-clock"></div>
+      <div class="user-menu" id="user-menu">
+        <span class="user-name" id="user-name">—</span>
+        <span class="user-role" id="user-role"></span>
+        <button class="btn btn-ghost btn-sm" id="btn-logout">Logout</button>
+      </div>
+      <button class="btn btn-primary" id="btn-add-item" onclick="openModal('modal-add-item')">
+        + Add Item
+      </button>
+    </div>
+  </header>
+
+  <!-- ── DASHBOARD PAGE ────────────────────────────────────── -->
+  <section class="page active" id="page-dashboard">
+    <!-- Stats Cards -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card stat-blue">
+        <div class="stat-icon">📦</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-items">—</div>
+          <div class="stat-label">Product Types</div>
+        </div>
+      </div>
+      <div class="stat-card stat-purple">
+        <div class="stat-icon">🔢</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-units">—</div>
+          <div class="stat-label">Units in Stock</div>
+        </div>
+      </div>
+      <div class="stat-card stat-purple">
+        <div class="stat-icon">🗂️</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-categories">—</div>
+          <div class="stat-label">Categories</div>
+        </div>
+      </div>
+      <div class="stat-card stat-orange staff-hidden" id="stat-card-cost">
+        <div class="stat-icon">💰</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-cost-value">—</div>
+          <div class="stat-label">Stock Cost Value</div>
+        </div>
+      </div>
+      <div class="stat-card stat-green">
+        <div class="stat-icon">📈</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-retail-value">—</div>
+          <div class="stat-label">Retail Value</div>
+        </div>
+      </div>
+      <div class="stat-card stat-teal staff-hidden" id="stat-card-profit">
+        <div class="stat-icon">✨</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-profit">—</div>
+          <div class="stat-label">Potential Profit</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Low Stock Alerts -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🚨 Low Stock Alerts</h2>
+        </div>
+        <div class="card-body" id="low-stock-list">
+          <div class="empty-state">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Recent Sales -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🛒 Recent Sales</h2>
+        </div>
+        <div class="card-body" id="recent-sales-list">
+          <div class="empty-state">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Item-wise Sales & Profit Charts -->
+    <div class="charts-row">
+      <div class="card chart-card">
+        <div class="card-header">
+          <h2 class="card-title">Item-wise Sales (Revenue)</h2>
+        </div>
+        <div class="card-body chart-body">
+          <canvas id="chart-sales" height="280"></canvas>
+          <div class="chart-empty" id="chart-sales-empty">No sales data yet.</div>
+        </div>
+      </div>
+      <div class="card chart-card staff-hidden" id="chart-card-profit">
+        <div class="card-header">
+          <h2 class="card-title">Item-wise Profit</h2>
+        </div>
+        <div class="card-body chart-body">
+          <canvas id="chart-profit" height="280"></canvas>
+          <div class="chart-empty" id="chart-profit-empty">No profit data yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category-wise Sales (Pie Chart) -->
+    <div class="chart-single">
+      <div class="card chart-card">
+        <div class="card-header">
+          <h2 class="card-title">Category-wise Sales (Revenue)</h2>
+        </div>
+        <div class="card-body chart-body chart-body-pie">
+          <canvas id="chart-category" height="300"></canvas>
+          <div class="chart-empty" id="chart-category-empty">No sales data yet.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── INVENTORY PAGE ────────────────────────────────────── -->
+  <section class="page" id="page-items">
+    <!-- Search & Filters -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="item-search" placeholder="Search by name or SKU..." />
+      </div>
+      <select class="filter-select" id="filter-category">
+        <option value="">All Categories</option>
+      </select>
+      <label class="checkbox-label">
+        <input type="checkbox" id="filter-low-stock" />
+        Low Stock Only
+      </label>
+    </div>
+
+    <!-- Items Table -->
+    <div class="card">
+      <div class="card-body no-pad">
+        <table class="data-table" id="items-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>SKU</th>
+              <th>Item Name</th>
+              <th>Category</th>
+              <th>Size / Class</th>
+              <th class="staff-hidden" id="th-cost">Cost (PKR)</th>
+              <th>Sale (PKR)</th>
+              <th>Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="items-tbody">
+            <tr><td colspan="9" class="loading-row">Loading inventory...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CATEGORIES PAGE ───────────────────────────────────── -->
+  <section class="page" id="page-categories">
+    <div class="toolbar">
+      <button class="btn btn-primary" id="btn-add-category" onclick="openModal('modal-add-category')">+ Add Category</button>
+    </div>
+    <div class="categories-grid" id="categories-grid">
+      <div class="loading-state">Loading categories...</div>
+    </div>
+  </section>
+
+  <!-- ── TRANSACTIONS PAGE ─────────────────────────────────── -->
+  <section class="page" id="page-transactions">
+    <div class="toolbar">
+      <select class="filter-select" id="filter-tx-type">
+        <option value="">All Types</option>
+        <option value="SALE">Sales</option>
+        <option value="STOCK_IN">Stock In</option>
+        <option value="INITIAL_BALANCE">Initial Balance</option>
+      </select>
+    </div>
+    <div class="card">
+      <div class="card-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Item (SKU)</th>
+              <th>Type</th>
+              <th>Quantity</th>
+              <th>Price (PKR)</th>
+              <th>Reference</th>
+            </tr>
+          </thead>
+          <tbody id="tx-tbody">
+            <tr><td colspan="6" class="loading-row">Loading transactions...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── USERS PAGE (Admin only) ───────────────────────────────── -->
+  <section class="page" id="page-users">
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openModal('modal-add-user')" id="btn-add-user">+ Add User</button>
+    </div>
+    <div class="card">
+      <div class="card-body no-pad">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="5" class="loading-row">Loading users...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── MODALS ─────────────────────────────────────────────────── -->
+
+<!-- Add Item Modal -->
+<div class="modal-overlay" id="modal-add-item" onclick="closeModalOnOverlay(event, 'modal-add-item')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add New Item</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-item')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-add-item">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Item Name *</label>
+            <input type="text" name="name" required placeholder="e.g. Boys Shirt Size 32" />
+          </div>
+          <div class="form-group">
+            <label>Category *</label>
+            <select name="categoryId" required id="add-item-category-select">
+              <option value="">Select category...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SKU Code (auto-generated if blank)</label>
+            <input type="text" name="sku" placeholder="e.g. BUN-SH-32" />
+          </div>
+          <div class="form-group">
+            <label>Size</label>
+            <input type="text" name="size" placeholder="e.g. 32, M, L" />
+          </div>
+          <div class="form-group">
+            <label>Class</label>
+            <input type="text" name="itemClass" placeholder="e.g. Class 5" />
+          </div>
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" name="subject" placeholder="e.g. Mathematics" />
+          </div>
+          <div class="form-group">
+            <label>Cost Price (PKR) *</label>
+            <input type="number" name="costPrice" required min="0" step="1" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label>Sale Price (PKR) *</label>
+            <input type="number" name="salePrice" required min="0" step="1" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label>Initial Stock</label>
+            <input type="number" name="stock" min="0" step="1" placeholder="0" />
+          </div>
+          <div class="form-group full-width">
+            <label>Description</label>
+            <textarea name="description" placeholder="Optional notes..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-add-item')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal-overlay" id="modal-add-category" onclick="closeModalOnOverlay(event, 'modal-add-category')">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Add Category</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-category')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-add-category">
+        <div class="form-group">
+          <label>Category Name *</label>
+          <input type="text" name="name" required placeholder="e.g. Boys' Uniform" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea name="description" placeholder="Optional..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-add-category')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Stock In Modal -->
+<div class="modal-overlay" id="modal-stock-in" onclick="closeModalOnOverlay(event, 'modal-stock-in')">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>📥 Add Stock</h2>
+      <button class="modal-close" onclick="closeModal('modal-stock-in')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="item-info-banner" id="stock-in-item-banner"></div>
+      <form id="form-stock-in">
+        <input type="hidden" name="itemId" id="stock-in-item-id" />
+        <div class="form-group">
+          <label>Quantity to Add *</label>
+          <input type="number" name="quantity" required min="1" step="1" placeholder="e.g. 50" id="stock-in-qty" />
+        </div>
+        <div class="form-group">
+          <label>Purchase Price per Unit (PKR)</label>
+          <input type="number" name="price" min="0" step="1" placeholder="Optional" />
+        </div>
+        <div class="form-group">
+          <label>Reference / Invoice No.</label>
+          <input type="text" name="reference" placeholder="e.g. INV-2024-001" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-stock-in')">Cancel</button>
+          <button type="submit" class="btn btn-success">Add Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Sale Modal -->
+<div class="modal-overlay" id="modal-sale" onclick="closeModalOnOverlay(event, 'modal-sale')">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>🛒 Record Sale</h2>
+      <button class="modal-close" onclick="closeModal('modal-sale')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="item-info-banner" id="sale-item-banner"></div>
+      <form id="form-sale">
+        <input type="hidden" name="itemId" id="sale-item-id" />
+        <div class="form-group">
+          <label>Quantity Sold *</label>
+          <input type="number" name="quantity" required min="1" step="1" placeholder="e.g. 2" id="sale-qty" />
+        </div>
+        <div class="form-group">
+          <label>Sale Price per Unit (PKR)</label>
+          <input type="number" name="price" min="0" step="1" placeholder="Defaults to item sale price" id="sale-price" />
+        </div>
+        <div class="form-group">
+          <label>Reference / Receipt No.</label>
+          <input type="text" name="reference" placeholder="e.g. RCPT-001" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-sale')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Record Sale</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Item Profile Modal -->
+<div class="modal-overlay" id="modal-item-profile" onclick="closeModalOnOverlay(event, 'modal-item-profile')">
+  <div class="modal modal-profile">
+    <div class="modal-header">
+      <h2>Item Profile</h2>
+      <button class="modal-close" onclick="closeModal('modal-item-profile')">✕</button>
+    </div>
+    <div class="modal-body" id="item-profile-body">
+      <div class="profile-loading">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal (Admin only) -->
+<div class="modal-overlay" id="modal-add-user" onclick="closeModalOnOverlay(event, 'modal-add-user')">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Add User</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-add-user">
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" name="email" required placeholder="user@school.local" />
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" name="password" required minlength="6" placeholder="Min 6 characters" />
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" name="name" placeholder="Optional" />
+        </div>
+        <div class="form-group">
+          <label>Role *</label>
+          <select name="role" required id="add-user-role">
+            <option value="STAFF">Staff</option>
+            <option value="MANAGER">Manager</option>
+            <option value="ADMIN">Admin</option>
+            <option value="VIEWER">Viewer</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-add-user')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal (Admin only) -->
+<div class="modal-overlay" id="modal-edit-user" onclick="closeModalOnOverlay(event, 'modal-edit-user')">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Edit User</h2>
+      <button class="modal-close" onclick="closeModal('modal-edit-user')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-edit-user">
+        <input type="hidden" name="userId" id="edit-user-id" />
+        <div class="form-group">
+          <label>Email</label>
+          <input type="text" name="email" id="edit-user-email" disabled style="opacity:0.8;cursor:not-allowed" />
+        </div>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" name="name" id="edit-user-name" placeholder="Optional" />
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select name="role" id="edit-user-role">
+            <option value="VIEWER">Viewer</option>
+            <option value="STAFF">Staff</option>
+            <option value="MANAGER">Manager</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="isActive" id="edit-user-active" checked />
+            Active
+          </label>
+        </div>
+        <div class="form-group">
+          <label>New Password</label>
+          <input type="password" name="password" id="edit-user-password" minlength="6" placeholder="Leave blank to keep current" autocomplete="new-password" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-edit-user')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
