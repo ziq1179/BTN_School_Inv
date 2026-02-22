@@ -15,6 +15,9 @@ import transactionRoutes from './routes/transactions.js';
 
 const app = express();
 
+// Required behind reverse proxy (Render, etc.): trust X-Forwarded-* headers for cookies & HTTPS
+app.set('trust proxy', true);
+
 // Netlify: rewrite /.netlify/functions/api/* to /api/* so Express routes match
 app.use((req, res, next) => {
     if (req.path.startsWith('/.netlify/functions/api')) {
@@ -43,6 +46,13 @@ app.use(cookieSession({
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
 }));
+// Fix secure cookie behind proxy: cookie-session skips Set-Cookie if secure but req.secure is false
+app.use((req, res, next) => {
+    if (req.sessionOptions) {
+        req.sessionOptions.secure = req.secure || req.get('x-forwarded-proto') === 'https';
+    }
+    next();
+});
 
 // Serve static files only when NOT on Netlify (Netlify serves from publish dir)
 if (!process.env.NETLIFY) {

@@ -1,0 +1,14 @@
+# Render.com blueprint - Turso works reliably here (unlike Netlify Lambda)
+services:
+  - type: web
+    name: school-inventory
+    env: node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
