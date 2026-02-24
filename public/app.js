@@ -8,6 +8,7 @@ const API = (window.location.origin || '') + '/api';
 let allItems = [];
 let allCategories = [];
 let currentUser = null;
+let appSettings = { schoolName: 'By The Numb3rs', logoUrl: '/logo.png' };
 
 // ── Utilities ──────────────────────────────────────────────────
 const fmt = n => `PKR ${Number(n).toLocaleString('en-PK')}`;
@@ -136,11 +137,13 @@ async function checkAuth() {
     }
     currentUser = res.data;
     startKeepAlive();
+    await loadAppSettings();
     document.getElementById('user-name').textContent = currentUser.name || currentUser.email;
     document.getElementById('user-role').textContent = currentUser.role;
     document.body.classList.toggle('role-staff', isStaff());
     if (currentUser.role === 'ADMIN') {
         document.getElementById('nav-users').style.display = 'flex';
+        document.getElementById('nav-settings').style.display = 'flex';
     }
     if (!canWrite()) {
         document.getElementById('btn-add-item').style.display = 'none';
@@ -161,12 +164,37 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 });
 
 // ── Navigation ──────────────────────────────────────────────────
-const pages = ['dashboard', 'items', 'categories', 'transactions', 'users'];
+const pages = ['dashboard', 'items', 'categories', 'transactions', 'users', 'settings'];
+
+async function loadAppSettings() {
+    try {
+        const res = await fetch(`${API}/settings`, { credentials: 'include' });
+        const data = await res.json();
+        if (data.success && data.data) {
+            appSettings.schoolName = data.data.schoolName || appSettings.schoolName;
+            appSettings.logoUrl = data.data.logoUrl || appSettings.logoUrl;
+            applyBranding();
+        }
+    } catch (_) {}
+}
+
+function applyBranding() {
+    const logoEl = document.querySelector('.sidebar-logo .logo-icon-img');
+    const titleEl = document.querySelector('.sidebar-logo .logo-title');
+    const subEl = document.querySelector('.sidebar-logo .logo-sub');
+    const centerLogo = document.querySelector('.sidebar-logo-center .sidebar-logo-img');
+    if (logoEl) logoEl.src = appSettings.logoUrl;
+    if (titleEl) titleEl.textContent = appSettings.schoolName;
+    if (subEl) subEl.textContent = 'School Inventory';
+    if (centerLogo) centerLogo.src = appSettings.logoUrl;
+}
 
 function navigate(page) {
     pages.forEach(p => {
-        document.getElementById(`page-${p}`).classList.toggle('active', p === page);
-        document.getElementById(`nav-${p}`).classList.toggle('active', p === page);
+        const pageEl = document.getElementById(`page-${p}`);
+        const navEl = document.getElementById(`nav-${p}`);
+        if (pageEl) pageEl.classList.toggle('active', p === page);
+        if (navEl) navEl.classList.toggle('active', p === page);
     });
 
     const titles = {
@@ -175,8 +203,9 @@ function navigate(page) {
         categories: 'Categories',
         transactions: 'Transactions',
         users: 'Users',
+        settings: 'Settings',
     };
-    document.getElementById('page-title').textContent = titles[page];
+    document.getElementById('page-title').textContent = titles[page] || page;
 
     // Load data for the page
     if (page === 'dashboard') loadDashboard();
@@ -189,6 +218,13 @@ function navigate(page) {
             return;
         }
         loadUsers();
+    }
+    if (page === 'settings') {
+        if (currentUser?.role !== 'ADMIN') {
+            navigate('dashboard');
+            return;
+        }
+        loadSettingsPage();
     }
 }
 
@@ -984,6 +1020,59 @@ async function loadUsers() {
         tbody.innerHTML = `<tr><td colspan="5" class="loading-row">Error: ${err.message}</td></tr>`;
     }
 }
+
+// ── Settings (Admin only) ─────────────────────────────────────────
+async function loadSettingsPage() {
+    if (currentUser?.role !== 'ADMIN') return;
+    try {
+        const res = await fetch('/api/settings');
+        const data = res.ok ? await res.json() : {};
+        const nameEl = document.getElementById('settings-school-name');
+        const previewEl = document.getElementById('settings-logo-preview');
+        if (nameEl) nameEl.value = data.schoolName || appSettings.schoolName || '';
+        if (previewEl) previewEl.src = (data.logoUrl ? (data.logoUrl.startsWith('http') ? data.logoUrl : window.location.origin + data.logoUrl) : appSettings.logoUrl) || '/logo.png';
+    } catch (_) {
+        const nameEl = document.getElementById('settings-school-name');
+        if (nameEl) nameEl.value = appSettings.schoolName || '';
+    }
+}
+
+document.getElementById('form-settings')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-save-settings');
+    const schoolName = document.getElementById('settings-school-name').value?.trim();
+    const fileInput = document.getElementById('settings-logo-file');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    try {
+        if (schoolName) {
+            const res = await api('/settings', { method: 'PUT', body: JSON.stringify({ schoolName }) });
+            if (!res.success) throw new Error(res.error || 'Failed to save name');
+        }
+        if (fileInput?.files?.length) {
+            const fd = new FormData();
+            fd.append('logo', fileInput.files[0]);
+            const res = await fetch('/api/settings/logo', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Logo upload failed');
+            fileInput.value = '';
+        }
+        await loadAppSettings();
+        applyBranding();
+        const previewEl = document.getElementById('settings-logo-preview');
+        if (previewEl) previewEl.src = appSettings.logoUrl || '/logo.png';
+        showToast('Settings saved', 'success');
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    }
+});
 
 function openEditUserModal(user) {
     document.getElementById('edit-user-id').value = user.id;

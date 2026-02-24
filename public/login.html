@@ -62,8 +62,8 @@
   <div class="login-page">
     <div class="card login-card">
       <div class="login-logo">
-        <img src="/logo.png" alt="BY THE NUMB3RS" class="login-logo-img" />
-        <h1>BY THE NUMB<span style="color:var(--accent-blue)">3</span>RS</h1>
+        <img id="login-logo-img" src="/logo.png" alt="School logo" class="login-logo-img" />
+        <h1 id="login-school-name">BY THE NUMB<span style="color:var(--accent-blue)">3</span>RS</h1>
         <div class="sub">School Inventory</div>
       </div>
       <div class="login-error" id="login-error"></div>
@@ -87,6 +87,23 @@
     const errEl = document.getElementById('login-error');
     const form = document.getElementById('login-form');
     const btn = document.getElementById('login-btn');
+
+    // Load school branding from public settings
+    (function applyLoginBranding() {
+      fetch(API + '/settings').then(function (res) {
+        if (!res.ok) return;
+        return res.json();
+      }).then(function (data) {
+        if (!data) return;
+        const img = document.getElementById('login-logo-img');
+        const title = document.getElementById('login-school-name');
+        if (data.logoUrl && img) {
+          img.src = data.logoUrl.startsWith('http') ? data.logoUrl : (window.location.origin + data.logoUrl);
+          img.alt = data.schoolName || 'School logo';
+        }
+        if (data.schoolName && title) title.textContent = data.schoolName;
+      }).catch(function () {});
+    })();
 
     function showError(msg, isInfo) {
       errEl.textContent = msg;

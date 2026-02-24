@@ -45,6 +45,10 @@
       <span class="nav-icon">👥</span>
       <span>Users</span>
     </a>
+    <a href="#" class="nav-item" data-page="settings" id="nav-settings" style="display:none">
+      <span class="nav-icon">⚙️</span>
+      <span>Settings</span>
+    </a>
   </nav>
 
   <div class="sidebar-logo-center">
@@ -299,6 +303,39 @@
           </tbody>
         </table>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SETTINGS PAGE (Admin only) ───────────────────────────────── -->
+  <section class="page" id="page-settings">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">School branding</h2>
+      </div>
+      <div class="card-body">
+        <p class="settings-intro">Set your school name and logo. They appear in the sidebar and on the login page.</p>
+        <form id="form-settings">
+          <div class="form-group">
+            <label>School name</label>
+            <input type="text" name="schoolName" id="settings-school-name" placeholder="e.g. St. Mary's School" required />
+          </div>
+          <div class="form-group">
+            <label>Logo</label>
+            <div class="settings-logo-row">
+              <div class="settings-logo-preview">
+                <img id="settings-logo-preview" src="/logo.png" alt="Logo" />
+              </div>
+              <div>
+                <input type="file" id="settings-logo-file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" />
+                <p class="form-hint">PNG, JPEG, GIF or WebP. Max 2MB.</p>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="btn-save-settings">Save</button>
+          </div>
+        </form>
       </div>
     </div>
   </section>

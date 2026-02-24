@@ -12,6 +12,7 @@ import userRoutes from './routes/users.js';
 import categoryRoutes from './routes/categories.js';
 import itemRoutes from './routes/items.js';
 import transactionRoutes from './routes/transactions.js';
+import settingsRoutes from './routes/settings.js';
 
 const app = express();
 
@@ -65,6 +66,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // ── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
