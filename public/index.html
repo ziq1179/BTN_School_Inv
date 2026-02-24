@@ -434,7 +434,8 @@
       <h2>🛒 Record Sale</h2>
       <button class="modal-close" onclick="closeModal('modal-sale')">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" id="sale-modal-body">
+      <div id="sale-form-wrap">
       <div class="item-info-banner" id="sale-item-banner"></div>
       <form id="form-sale">
         <input type="hidden" name="itemId" id="sale-item-id" />
@@ -455,6 +456,14 @@
           <button type="submit" class="btn btn-danger">Record Sale</button>
         </div>
       </form>
+      </div>
+      <div id="sale-receipt-wrap" class="hidden">
+        <div class="receipt-print" id="receipt-content"></div>
+        <div class="form-actions" style="margin-top: 20px;">
+          <button type="button" class="btn btn-primary" onclick="printReceipt()">🖨️ Print Receipt</button>
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-sale')">Done</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

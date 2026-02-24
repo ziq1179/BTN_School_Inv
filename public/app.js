@@ -16,17 +16,78 @@ const fmtDate = d => new Date(d).toLocaleString('en-PK', {
     hour: '2-digit', minute: '2-digit'
 });
 
+const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 min – keeps Render free instance from spinning down
+let keepAliveTimer = null;
+
 async function api(path, options = {}) {
-    const res = await fetch(`${API}${path}`, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        ...options,
-    });
-    if (res.status === 401 && !path.includes('/auth/')) {
-        window.location.href = '/login.html';
-        throw new Error('Session expired');
+    const maxRetries = 4;
+    const retryDelay = 20000; // 20s between retries (cold start ~50s)
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const res = await fetch(`${API}${path}`, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                ...options,
+            });
+            const isServerDown = res.status === 502 || res.status === 503 || res.status === 504;
+            if (isServerDown && attempt < maxRetries) {
+                showWakeUpOverlay(attempt, maxRetries);
+                await new Promise(r => setTimeout(r, retryDelay));
+                continue;
+            }
+            hideWakeUpOverlay();
+            if (res.status === 401 && !path.includes('/auth/')) {
+                window.location.href = '/login.html';
+                throw new Error('Session expired');
+            }
+            return res.json();
+        } catch (err) {
+            lastError = err;
+            const isRetryable = err.name === 'TypeError' || (err.message && err.message.includes('fetch'));
+            if (attempt < maxRetries && isRetryable) {
+                showWakeUpOverlay(attempt, maxRetries);
+                await new Promise(r => setTimeout(r, retryDelay));
+            } else {
+                hideWakeUpOverlay();
+                throw lastError;
+            }
+        }
     }
-    return res.json();
+    hideWakeUpOverlay();
+    throw lastError;
+}
+
+function showWakeUpOverlay(attempt, maxRetries) {
+    let el = document.getElementById('wake-up-overlay');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'wake-up-overlay';
+        el.className = 'wake-up-overlay';
+        el.innerHTML = `
+            <div class="wake-up-card">
+                <div class="wake-up-spinner"></div>
+                <h3>Server is waking up</h3>
+                <p>Free tier instances sleep after inactivity. This usually takes 30–60 seconds.</p>
+                <p class="wake-up-attempt">Retrying… (${attempt}/${maxRetries})</p>
+            </div>`;
+        document.body.appendChild(el);
+    } else {
+        const p = el.querySelector('.wake-up-attempt');
+        if (p) p.textContent = `Retrying… (${attempt}/${maxRetries})`;
+    }
+}
+function hideWakeUpOverlay() {
+    document.getElementById('wake-up-overlay')?.remove();
+}
+
+function startKeepAlive() {
+    if (keepAliveTimer) return;
+    keepAliveTimer = setInterval(async () => {
+        try {
+            await fetch(`${API}/health`, { credentials: 'include' });
+        } catch (_) {}
+    }, KEEP_ALIVE_INTERVAL);
 }
 
 // ── Toast ───────────────────────────────────────────────────────
@@ -74,6 +135,7 @@ async function checkAuth() {
         return false;
     }
     currentUser = res.data;
+    startKeepAlive();
     document.getElementById('user-name').textContent = currentUser.name || currentUser.email;
     document.getElementById('user-role').textContent = currentUser.role;
     document.body.classList.toggle('role-staff', isStaff());
@@ -165,6 +227,10 @@ function closeModal(id) {
     document.getElementById(id).classList.remove('open');
     const form = document.querySelector(`#${id} form`);
     if (form) form.reset();
+    if (id === 'modal-sale') {
+        document.getElementById('sale-form-wrap')?.classList.remove('hidden');
+        document.getElementById('sale-receipt-wrap')?.classList.add('hidden');
+    }
 }
 
 function closeModalOnOverlay(event, id) {
@@ -792,8 +858,10 @@ document.getElementById('form-sale').addEventListener('submit', async e => {
     try {
         const result = await api(`/items/${itemId}/sale`, { method: 'POST', body: JSON.stringify(body) });
         if (!result.success) throw new Error(result.error);
-        showToast(`${result.message} · Revenue: ${fmt(result.revenue)}`, 'success');
-        closeModal('modal-sale');
+        showToast(`Sale recorded · ${fmt(result.revenue)}`, 'success');
+        showSaleReceipt(result);
+        document.getElementById('sale-form-wrap').classList.add('hidden');
+        document.getElementById('sale-receipt-wrap').classList.remove('hidden');
         await loadItems();
         renderItemsTable();
         await loadDashboard();
@@ -803,6 +871,66 @@ document.getElementById('form-sale').addEventListener('submit', async e => {
         btn.textContent = 'Record Sale'; btn.disabled = false;
     }
 });
+
+function showSaleReceipt(result) {
+    const { item, transaction } = result.data || {};
+    const qty = Math.abs(transaction?.quantity || 0);
+    const unitPrice = transaction?.price || 0;
+    const total = result.revenue || qty * unitPrice;
+    const ref = transaction?.reference || '—';
+    const date = transaction?.createdAt ? new Date(transaction.createdAt).toLocaleString('en-PK') : new Date().toLocaleString('en-PK');
+    const el = document.getElementById('receipt-content');
+    el.innerHTML = `
+        <div class="receipt-header">
+            <strong>BY THE NUMB3RS</strong>
+            <span>School Inventory</span>
+        </div>
+        <div class="receipt-title">SALES RECEIPT</div>
+        <div class="receipt-meta">
+            <div>Date: ${date}</div>
+            <div>Ref: ${ref}</div>
+        </div>
+        <table class="receipt-table">
+            <thead>
+                <tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>${item?.name || '—'} (${item?.sku || '—'})</td>
+                    <td>${qty}</td>
+                    <td>${fmt(unitPrice)}</td>
+                    <td>${fmt(total)}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="receipt-total">Total: ${fmt(total)}</div>
+        <div class="receipt-footer">Thank you for your purchase</div>
+    `;
+}
+
+function printReceipt() {
+    const content = document.getElementById('receipt-content');
+    if (!content) return;
+    const win = window.open('', '_blank');
+    win.document.write(`
+        <!DOCTYPE html><html><head>
+        <title>Receipt</title>
+        <style>
+            body { font-family: Arial,sans-serif; font-size: 14px; padding: 24px; max-width: 320px; }
+            .receipt-header { text-align: center; border-bottom: 1px dashed #333; padding-bottom: 12px; margin-bottom: 12px; }
+            .receipt-header strong { display: block; font-size: 18px; }
+            .receipt-title { text-align: center; font-weight: bold; margin: 8px 0; }
+            .receipt-meta { font-size: 12px; color: #555; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+            th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; }
+            th { font-size: 11px; color: #666; }
+            .receipt-total { font-weight: bold; font-size: 16px; margin: 12px 0; }
+            .receipt-footer { text-align: center; font-size: 12px; color: #666; margin-top: 16px; }
+        </style></head><body>${content.innerHTML}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 250);
+}
 
 // ── Live Filters ────────────────────────────────────────────────
 document.getElementById('item-search').addEventListener('input', renderItemsTable);

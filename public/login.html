@@ -51,6 +51,11 @@
       display: none;
     }
     .login-error.visible { display: block; }
+    .login-error.info {
+      background: rgba(46, 119, 211, 0.15);
+      border-color: rgba(46, 119, 211, 0.4);
+      color: var(--accent-blue);
+    }
   </style>
 </head>
 <body>
@@ -83,12 +88,34 @@
     const form = document.getElementById('login-form');
     const btn = document.getElementById('login-btn');
 
-    function showError(msg) {
+    function showError(msg, isInfo) {
       errEl.textContent = msg;
       errEl.classList.add('visible');
+      errEl.classList.toggle('info', !!isInfo);
     }
     function hideError() {
       errEl.classList.remove('visible');
+    }
+
+    async function fetchWithRetry(url, opts) {
+      const maxRetries = 4;
+      const retryDelay = 20000;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetch(url, opts);
+          if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
+            showError('Server is waking up. Please wait ' + (attempt * 20) + 's…', true);
+            await new Promise(r => setTimeout(r, retryDelay));
+            continue;
+          }
+          return res;
+        } catch (err) {
+          if (attempt < maxRetries) {
+            showError('Server is waking up. Retrying in 20s…', true);
+            await new Promise(r => setTimeout(r, retryDelay));
+          } else throw err;
+        }
+      }
     }
 
     form.addEventListener('submit', async (e) => {
@@ -98,7 +125,7 @@
       btn.textContent = 'Signing in...';
       try {
         const fd = new FormData(form);
-        const res = await fetch(API + '/auth/login', {
+        const res = await fetchWithRetry(API + '/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -108,7 +135,7 @@
         try {
           data = await res.json();
         } catch {
-          showError(res.status === 502 ? 'Server temporarily unavailable. Check Netlify function logs.' : 'Server error. Please try again.');
+          showError('Server error. Please try again.');
           return;
         }
         if (!data.success) {
