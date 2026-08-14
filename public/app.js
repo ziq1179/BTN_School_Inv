@@ -717,7 +717,10 @@ function openSaleModal(id, sku, name, currentStock, salePrice) {
 // ── Categories ──────────────────────────────────────────────────
 async function loadCategories() {
     const result = await api('/categories');
-    if (result.success) allCategories = result.data;
+    if (result.success) {
+        allCategories = result.data;
+        populateCategoryFilters();
+    }
 }
 
 const catEmoji = name => {
