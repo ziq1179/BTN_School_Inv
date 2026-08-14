@@ -34,5 +34,11 @@
     "nodemon": "^3.1.14",
     "prisma": "^6.19.2",
     "tsx": "^4.21.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.2": true,
+    "@prisma/engines@6.19.2": true,
+    "prisma@6.19.2": true,
+    "esbuild@0.27.3": true
   }
 }
