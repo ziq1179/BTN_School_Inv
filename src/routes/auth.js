@@ -40,8 +40,8 @@ router.post('/login', async (req, res) => {
                 role: user.role,
             },
         });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -63,8 +63,8 @@ router.get('/me', requireAuth, async (req, res) => {
             return res.status(401).json({ success: false, error: 'Session invalid' });
         }
         res.json({ success: true, data: user });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 

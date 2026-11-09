@@ -57,8 +57,8 @@ router.get('/', async (req, res) => {
             totalStockValue: totalValue,
             data: items,
         });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -71,8 +71,8 @@ router.get('/sku/:sku', async (req, res) => {
         });
         if (!item) return res.status(404).json({ success: false, error: `No item found with SKU: ${req.params.sku}` });
         res.json({ success: true, data: item });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -88,8 +88,8 @@ router.get('/:id', async (req, res) => {
         });
         if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
         res.json({ success: true, data: item });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -142,15 +142,15 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
         });
 
         res.status(201).json({ success: true, data: item });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2002') {
             return res.status(409).json({ success: false, error: 'An item with this SKU already exists' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// PUT /api/items/:id - Update item details (not stock — use /stock-in or /sale for that)
+// PUT /api/items/:id - Update item details (not stock â€” use /stock-in or /sale for that)
 router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
     try {
         const { name, description, size, itemClass, subject, costPrice, salePrice } = req.body;
@@ -169,11 +169,11 @@ router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
             include: { category: true },
         });
         res.json({ success: true, data: item });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'Item not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -210,11 +210,11 @@ router.post('/:id/stock-in', minRole(ROLES.STAFF), async (req, res) => {
             message: `Added ${qty} units. New stock: ${updatedItem.stock}`,
             data: { item: updatedItem, transaction },
         });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'Item not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -266,8 +266,8 @@ router.post('/:id/sale', minRole(ROLES.STAFF), async (req, res) => {
             revenue,
             data: { item: updatedItem, transaction },
         });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -285,11 +285,11 @@ router.delete('/:id', minRole(ROLES.STAFF), async (req, res) => {
         }
         await prisma.item.delete({ where: { id: parseInt(req.params.id) } });
         res.json({ success: true, message: 'Item deleted' });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'Item not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 

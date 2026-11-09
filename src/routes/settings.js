@@ -21,19 +21,19 @@ const upload = multer({
     },
 });
 
-// GET /api/settings — public (for login page and app shell)
+// GET /api/settings â€” public (for login page and app shell)
 router.get('/', async (req, res) => {
     try {
         const row = await prisma.school.findFirst({ where: { id: 1 } });
         const name = row?.name ?? 'By The Numb3rs';
         const logoUrl = row?.logoPath ?? '/logo.png';
         res.json({ success: true, data: { schoolName: name, logoUrl } });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// PUT /api/settings — update school name (admin only)
+// PUT /api/settings â€” update school name (admin only)
 router.put('/', requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
     try {
         const { schoolName } = req.body;
@@ -50,12 +50,12 @@ router.put('/', requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
             success: true,
             data: { schoolName: row.name, logoUrl: row.logoPath ?? '/logo.png' },
         });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// POST /api/settings/logo — upload logo (admin only)
+// POST /api/settings/logo â€” upload logo (admin only)
 router.post('/logo', requireAuth, requireRole(ROLES.ADMIN), upload.single('logo'), async (req, res) => {
     try {
         if (!req.file) {
@@ -71,8 +71,8 @@ router.post('/logo', requireAuth, requireRole(ROLES.ADMIN), upload.single('logo'
             create: { id: 1, logoPath },
         });
         res.json({ success: true, data: { logoUrl: logoPath } });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 

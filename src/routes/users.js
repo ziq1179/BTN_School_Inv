@@ -17,8 +17,8 @@ router.get('/', async (req, res) => {
             orderBy: { createdAt: 'desc' },
         });
         res.json({ success: true, data: users });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -50,8 +50,8 @@ router.post('/', async (req, res) => {
         });
 
         res.status(201).json({ success: true, data: user });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -76,11 +76,11 @@ router.put('/:id', async (req, res) => {
         });
 
         res.json({ success: true, data: user });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'User not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -94,11 +94,11 @@ router.delete('/:id', async (req, res) => {
 
         await prisma.user.delete({ where: { id } });
         res.json({ success: true, message: 'User deleted' });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'User not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 

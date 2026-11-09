@@ -15,8 +15,8 @@ router.get('/', async (req, res) => {
             orderBy: { name: 'asc' },
         });
         res.json({ success: true, data: categories });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -33,8 +33,8 @@ router.get('/:id', async (req, res) => {
         });
         if (!category) return res.status(404).json({ success: false, error: 'Category not found' });
         res.json({ success: true, data: category });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -48,11 +48,11 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
             data: { name, description },
         });
         res.status(201).json({ success: true, data: category });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2002') {
             return res.status(409).json({ success: false, error: 'Category name already exists' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -65,11 +65,11 @@ router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
             data: { name, description },
         });
         res.json({ success: true, data: category });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'Category not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -84,11 +84,11 @@ router.delete('/:id', minRole(ROLES.STAFF), async (req, res) => {
         }
         await prisma.category.delete({ where: { id: parseInt(req.params.id) } });
         res.json({ success: true, message: 'Category deleted' });
-    } catch (err) {
+    } catch (err) { console.error('Request failed:', err);
         if (err.code === 'P2025') {
             return res.status(404).json({ success: false, error: 'Category not found' });
         }
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 

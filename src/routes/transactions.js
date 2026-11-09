@@ -24,8 +24,8 @@ router.get('/', async (req, res) => {
         });
 
         res.json({ success: true, count: transactions.length, data: transactions });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -85,8 +85,8 @@ router.get('/summary', async (req, res) => {
                 totalSalesRevenue: salesRevenue._sum.price || 0,
             },
         });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -133,8 +133,8 @@ router.get('/item-stats', async (req, res) => {
             .sort((a, b) => b.revenue - a.revenue);
 
         res.json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
@@ -166,8 +166,8 @@ router.get('/category-stats', async (req, res) => {
             .sort((a, b) => b.revenue - a.revenue);
 
         res.json({ success: true, data });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+    } catch (err) { console.error('Request failed:', err);
+        res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
