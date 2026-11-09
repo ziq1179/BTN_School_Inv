@@ -15,6 +15,7 @@ import transactionRoutes from './routes/transactions.js';
 import settingsRoutes from './routes/settings.js';
 import billingRoutes from './routes/billing.js';
 import stripeWebhookRoutes from './routes/stripe-webhook.js';
+import aiRoutes from './routes/ai.js';
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

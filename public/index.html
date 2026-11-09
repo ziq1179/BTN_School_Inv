@@ -41,6 +41,10 @@
       <span class="nav-icon">📋</span>
       <span>Transactions</span>
     </a>
+    <a href="#" class="nav-item" data-page="ai" id="nav-ai">
+      <span class="nav-icon">✨</span>
+      <span>AI Assistant</span>
+    </a>
     <a href="#" class="nav-item" data-page="users" id="nav-users" style="display:none">
       <span class="nav-icon">👥</span>
       <span>Users</span>
@@ -282,6 +286,54 @@
     </div>
   </section>
 
+  <!-- ── AI ASSISTANT PAGE ────────────────────────────────────── -->
+  <section class="page" id="page-ai">
+    <div class="card" id="ai-gate" style="display:none">
+      <div class="card-body" style="text-align:center; padding:48px 24px">
+        <div style="font-size:3rem">✨</div>
+        <h2 class="card-title" style="justify-content:center">AI features are part of Pro</h2>
+        <p class="settings-intro" style="margin:8px auto 16px; max-width:420px">Chat with your inventory in plain English, get 30-day insights, smart reorder suggestions, and auto-generated item descriptions.</p>
+        <button class="btn btn-primary" id="btn-ai-upgrade">Upgrade to Pro — $29/mo</button>
+      </div>
+    </div>
+
+    <div id="ai-panel">
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">✨ Ask your inventory</h2></div>
+        <div class="card-body">
+          <div class="ai-chat-log" id="ai-chat-log">
+            <div class="ai-msg ai-msg-assistant">Ask me anything about your stock, sales, or what to reorder.</div>
+          </div>
+          <form id="form-ai-chat" class="ai-chat-form">
+            <input type="text" id="ai-chat-input" autocomplete="off" placeholder="e.g. Which items should I reorder before the month ends?" />
+            <button type="submit" class="btn btn-primary" id="btn-ai-send">Send</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="ai-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📊 30-day insights</h2>
+            <button class="btn btn-ghost btn-sm" id="btn-ai-insights">Generate</button>
+          </div>
+          <div class="card-body">
+            <div id="ai-insights" class="ai-output muted">Click “Generate” for an AI analysis of your last 30 days.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📦 Reorder suggestions</h2>
+            <button class="btn btn-ghost btn-sm" id="btn-ai-reorder">Analyze</button>
+          </div>
+          <div class="card-body">
+            <div id="ai-reorder" class="ai-output muted">Click “Analyze” to see what’s running low vs. sales velocity.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ── USERS PAGE (Admin only) ───────────────────────────────── -->
   <section class="page" id="page-users">
     <div class="toolbar">
@@ -427,7 +479,7 @@
             <input type="number" name="stock" min="0" step="1" placeholder="0" />
           </div>
           <div class="form-group full-width">
-            <label>Description</label>
+            <label>Description <button type="button" class="btn btn-ghost btn-sm" id="btn-ai-describe" style="float:right;margin-top:-6px">✨ Auto-describe</button></label>
             <textarea name="description" placeholder="Optional notes..."></textarea>
           </div>
         </div>

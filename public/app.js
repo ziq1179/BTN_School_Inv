@@ -165,7 +165,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 });
 
 // ── Navigation ──────────────────────────────────────────────────
-const pages = ['dashboard', 'items', 'categories', 'transactions', 'users', 'settings'];
+const pages = ['dashboard', 'items', 'categories', 'transactions', 'ai', 'users', 'settings'];
 
 async function loadAppSettings() {
     try {
@@ -205,6 +205,7 @@ function navigate(page) {
         transactions: 'Transactions',
         users: 'Users',
         settings: 'Settings',
+        ai: 'AI Assistant',
     };
     document.getElementById('page-title').textContent = titles[page] || page;
 
@@ -227,6 +228,7 @@ function navigate(page) {
         }
         loadSettingsPage();
     }
+    if (page === 'ai') loadAiPage();
 }
 
 document.querySelectorAll('.nav-item').forEach(link => {
@@ -1119,6 +1121,131 @@ document.getElementById('btn-upgrade')?.addEventListener('click', () => navigate
         window.history.replaceState({}, '', clean);
     }
 })();
+
+// ── AI Assistant ───────────────────────────────────────────────
+function loadAiPage() {
+    const isPro = billingState?.ai === true;
+    const gate = document.getElementById('ai-gate');
+    const panel = document.getElementById('ai-panel');
+    if (gate) gate.style.display = isPro ? 'none' : 'block';
+    if (panel) panel.style.display = isPro ? 'block' : 'none';
+}
+
+function appendAiMessage(role, text) {
+    const log = document.getElementById('ai-chat-log');
+    if (!log) return;
+    const div = document.createElement('div');
+    div.className = `ai-msg ai-msg-${role}`;
+    div.textContent = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+}
+
+function setBusy(id, busyText, idleText) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = busyText;
+    return () => { btn.disabled = false; btn.textContent = idleText; };
+}
+
+async function aiPost(path, body) {
+    const res = await api(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+    if (!res.success) {
+        if (res.code === 'AI_REQUIRES_PRO' || res.code === 'PLAN_LIMIT') {
+            loadAiPage();
+            showToast(res.error, 'info');
+            return null;
+        }
+        throw new Error(res.error || 'AI request failed');
+    }
+    return res.data;
+}
+
+document.getElementById('form-ai-chat')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('ai-chat-input');
+    const question = input.value.trim();
+    if (!question) return;
+    appendAiMessage('user', question);
+    input.value = '';
+    const done = setBusy('btn-ai-send', 'Thinking…', 'Send');
+    try {
+        const data = await aiPost('/ai/chat', { question });
+        if (data?.answer) appendAiMessage('assistant', data.answer);
+    } catch (err) {
+        appendAiMessage('assistant', '⚠️ ' + err.message);
+    } finally {
+        if (done) done();
+    }
+});
+
+document.getElementById('btn-ai-insights')?.addEventListener('click', async () => {
+    const out = document.getElementById('ai-insights');
+    const done = setBusy('btn-ai-insights', 'Analyzing…', 'Generate');
+    out.classList.remove('muted');
+    out.textContent = 'Analyzing your last 30 days…';
+    try {
+        const data = await aiPost('/ai/insights');
+        if (data?.insights) out.textContent = data.insights;
+    } catch (err) {
+        out.textContent = '⚠️ ' + err.message;
+    } finally {
+        if (done) done();
+    }
+});
+
+document.getElementById('btn-ai-reorder')?.addEventListener('click', async () => {
+    const out = document.getElementById('ai-reorder');
+    const done = setBusy('btn-ai-reorder', 'Analyzing…', 'Analyze');
+    out.classList.remove('muted');
+    out.textContent = 'Checking 60-day sales velocity…';
+    try {
+        const data = await aiPost('/ai/reorder');
+        if (data?.suggestions) out.textContent = data.suggestions;
+    } catch (err) {
+        out.textContent = '⚠️ ' + err.message;
+    } finally {
+        if (done) done();
+    }
+});
+
+document.getElementById('btn-ai-describe')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const form = document.getElementById('form-add-item');
+    const name = form?.elements?.name?.value?.trim();
+    if (!name) {
+        showToast('Type an item name first', 'info');
+        return;
+    }
+    const btn = e.currentTarget;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '✨ Writing…';
+    try {
+        const data = await aiPost('/ai/describe', {
+            name,
+            category: form?.elements?.categoryId?.selectedOptions?.[0]?.textContent || undefined,
+            size: form?.elements?.size?.value || undefined,
+            itemClass: form?.elements?.itemClass?.value || undefined,
+            subject: form?.elements?.subject?.value || undefined,
+        });
+        if (data?.description) {
+            form.elements.description.value = data.description;
+            showToast('Description generated', 'success');
+        }
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+    }
+});
+
+document.getElementById('btn-ai-upgrade')?.addEventListener('click', () => {
+    // Upgrade button inside the AI gate — go to Settings → Plan & billing
+    navigate('settings');
+});
 
 // ── Settings (Admin only) ─────────────────────────────────────────
 async function loadSettingsPage() {
