@@ -138,6 +138,7 @@ async function checkAuth() {
     currentUser = res.data;
     startKeepAlive();
     await loadAppSettings();
+    await loadBilling();
     document.getElementById('user-name').textContent = currentUser.name || currentUser.email;
     document.getElementById('user-role').textContent = currentUser.role;
     document.body.classList.toggle('role-staff', isStaff());
@@ -1024,9 +1025,105 @@ async function loadUsers() {
     }
 }
 
+// ── Billing (plan & usage) ─────────────────────────────────────
+let billingState = null;
+
+async function loadBilling() {
+    try {
+        const res = await api('/billing/status');
+        if (!res.success) return;
+        billingState = res.data;
+        renderPlanBadge();
+        renderBillingCard();
+    } catch (_) { /* billing is optional */ }
+}
+
+function renderPlanBadge() {
+    const badge = document.getElementById('plan-badge');
+    const upgradeBtn = document.getElementById('btn-upgrade');
+    if (!badge) return;
+    const isPro = billingState?.plan === 'PRO';
+    badge.textContent = isPro ? 'PRO' : 'FREE';
+    badge.classList.toggle('pro', isPro);
+    if (upgradeBtn) upgradeBtn.style.display = (!isPro && currentUser?.role === 'ADMIN') ? 'inline-flex' : 'none';
+}
+
+function renderBillingCard() {
+    const card = document.getElementById('billing-card');
+    if (!card || !billingState) return;
+    const isPro = billingState.plan === 'PRO';
+    const usageItems = billingState.usage?.items ?? 0;
+    const usageUsers = billingState.usage?.users ?? 0;
+    const maxItems = billingState.maxItems;
+    const maxUsers = billingState.maxUsers;
+    const itemsPct = maxItems ? Math.min(100, Math.round((usageItems / maxItems) * 100)) : 4;
+    const usersPct = maxUsers ? Math.min(100, Math.round((usageUsers / maxUsers) * 100)) : 4;
+
+    const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    const badge = document.getElementById('billing-plan-badge');
+    if (badge) { badge.textContent = isPro ? 'PRO' : 'FREE'; badge.classList.toggle('pro', isPro); }
+    setText('billing-plan-name', isPro ? 'Pro plan' : 'Free plan');
+    setText('billing-plan-status', billingState.status === 'past_due' ? 'Payment past due — update your card' : (isPro ? `Active${billingState.currentPeriodEnd ? ' · renews ' + new Date(billingState.currentPeriodEnd).toLocaleDateString() : ''}` : 'No subscription'));
+    document.getElementById('billing-plan-status')?.classList.toggle('past-due', billingState.status === 'past_due');
+    const fillItems = document.getElementById('usage-fill-items');
+    const fillUsers = document.getElementById('usage-fill-users');
+    if (fillItems) { fillItems.style.width = itemsPct + '%'; fillItems.classList.toggle('hot', maxItems && usageItems >= maxItems); }
+    if (fillUsers) { fillUsers.style.width = usersPct + '%'; fillUsers.classList.toggle('hot', maxUsers && usageUsers >= maxUsers); }
+    setText('usage-text-items', maxItems ? `${usageItems}/${maxItems}` : `${usageItems} · ∞`);
+    setText('usage-text-users', maxUsers ? `${usageUsers}/${maxUsers}` : `${usageUsers} · ∞`);
+
+    const upgradeBtn = document.getElementById('btn-billing-upgrade');
+    const manageBtn = document.getElementById('btn-billing-manage');
+    const note = document.getElementById('billing-note');
+    if (upgradeBtn) upgradeBtn.style.display = isPro ? 'none' : 'inline-flex';
+    if (manageBtn) manageBtn.style.display = isPro ? 'inline-flex' : 'none';
+    if (note) note.textContent = isPro
+        ? 'You are on Pro: unlimited items & users, AI features, priority support.'
+        : 'Free plan: 50 items, 3 users, no AI. Pro unlocks unlimited items & users plus all AI features.';
+}
+
+async function startCheckout() {
+    const res = await api('/billing/checkout', { method: 'POST' });
+    if (res.success && res.url) {
+        window.location.href = res.url;
+        return;
+    }
+    showToast(res.error || 'Billing is not configured yet', 'error');
+}
+
+async function openPortal() {
+    const res = await api('/billing/portal', { method: 'POST' });
+    if (res.success && res.url) {
+        window.location.href = res.url;
+        return;
+    }
+    showToast(res.error || 'Could not open billing portal', 'error');
+}
+
+document.getElementById('btn-billing-upgrade')?.addEventListener('click', startCheckout);
+document.getElementById('btn-billing-manage')?.addEventListener('click', openPortal);
+document.getElementById('btn-upgrade')?.addEventListener('click', () => navigate('settings'));
+
+// Welcome-back toast after a Stripe checkout redirect
+(function handleBillingRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('billing') === 'success') {
+        showToast('🎉 Welcome to Pro! Your plan is active.', 'success', 5000);
+        params.delete('billing');
+        const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', clean);
+    } else if (params.get('billing') === 'cancel') {
+        showToast('Checkout canceled', 'info');
+        params.delete('billing');
+        const clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', clean);
+    }
+})();
+
 // ── Settings (Admin only) ─────────────────────────────────────────
 async function loadSettingsPage() {
     if (currentUser?.role !== 'ADMIN') return;
+    await loadBilling();
     try {
         const res = await fetch('/api/settings');
         const data = res.ok ? await res.json() : {};

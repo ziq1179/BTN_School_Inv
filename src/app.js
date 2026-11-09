@@ -13,6 +13,8 @@ import categoryRoutes from './routes/categories.js';
 import itemRoutes from './routes/items.js';
 import transactionRoutes from './routes/transactions.js';
 import settingsRoutes from './routes/settings.js';
+import billingRoutes from './routes/billing.js';
+import stripeWebhookRoutes from './routes/stripe-webhook.js';
 
 const app = express();
 
@@ -37,6 +39,8 @@ try {
 }
 
 // ── Middleware ──────────────────────────────────────────────────────────────
+// Stripe webhook must see the raw body — mount BEFORE express.json()
+app.use('/api/stripe', stripeWebhookRoutes);
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(morgan('dev'));
@@ -67,6 +71,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/billing', billingRoutes);
 
 // ── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
