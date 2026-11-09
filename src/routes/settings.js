@@ -1,31 +1,39 @@
 import express from 'express';
 import multer from 'multer';
-import { writeFile, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import prisma from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
 
 const router = express.Router();
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR = join(__dirname, '../../public/uploads');
-const LOGO_FILENAME = 'logo.png';
+
+// Logos are stored as data URLs in the School.logoPath column so they survive
+// serverless deploys (Vercel's filesystem is ephemeral).
+const LOGO_MIME = {
+    'image/png': 'image/png',
+    'image/jpeg': 'image/jpeg',
+    'image/jpg': 'image/jpeg',
+    'image/gif': 'image/gif',
+    'image/webp': 'image/webp',
+};
 
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
     fileFilter: (req, file, cb) => {
-        const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
-        if (allowed.includes(file.mimetype)) cb(null, true);
+        if (LOGO_MIME[file.mimetype]) cb(null, true);
         else cb(new Error('Only images (PNG, JPEG, GIF, WebP) are allowed'));
     },
 });
 
-// GET /api/settings â€” public (for login page and app shell)
+// GET /api/settings — public (for login page and app shell); scoped to this tenant
+// When unauthenticated, returns default branding so the login page renders.
 router.get('/', async (req, res) => {
     try {
-        const row = await prisma.school.findFirst({ where: { id: 1 } });
-        const name = row?.name ?? 'By The Numb3rs';
+        const tenantId = req.session?.tenantId;
+        let row = null;
+        if (tenantId) {
+            row = await prisma.school.findUnique({ where: { tenantId } });
+        }
+        const name = row?.name ?? 'School Inventory';
         const logoUrl = row?.logoPath ?? '/logo.png';
         res.json({ success: true, data: { schoolName: name, logoUrl } });
     } catch (err) { console.error('Request failed:', err);
@@ -33,19 +41,21 @@ router.get('/', async (req, res) => {
     }
 });
 
-// PUT /api/settings â€” update school name (admin only)
+// PUT /api/settings — update school name (admin only)
 router.put('/', requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const { schoolName } = req.body;
         if (!schoolName || typeof schoolName !== 'string') {
             return res.status(400).json({ success: false, error: 'schoolName is required' });
         }
+        const trimmed = schoolName.trim();
         await prisma.school.upsert({
-            where: { id: 1 },
-            update: { name: schoolName.trim(), updatedAt: new Date() },
-            create: { id: 1, name: schoolName.trim() },
+            where: { tenantId },
+            update: { name: trimmed, updatedAt: new Date() },
+            create: { tenantId, name: trimmed },
         });
-        const row = await prisma.school.findUnique({ where: { id: 1 } });
+        const row = await prisma.school.findUnique({ where: { tenantId } });
         res.json({
             success: true,
             data: { schoolName: row.name, logoUrl: row.logoPath ?? '/logo.png' },
@@ -55,20 +65,19 @@ router.put('/', requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
     }
 });
 
-// POST /api/settings/logo â€” upload logo (admin only)
+// POST /api/settings/logo — upload logo (admin only); stored as data URL in DB
 router.post('/logo', requireAuth, requireRole(ROLES.ADMIN), upload.single('logo'), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         if (!req.file) {
             return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
-        await mkdir(UPLOADS_DIR, { recursive: true });
-        const filePath = join(UPLOADS_DIR, LOGO_FILENAME);
-        await writeFile(filePath, req.file.buffer);
-        const logoPath = '/uploads/' + LOGO_FILENAME;
+        const mime = LOGO_MIME[req.file.mimetype];
+        const logoPath = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
         await prisma.school.upsert({
-            where: { id: 1 },
+            where: { tenantId },
             update: { logoPath, updatedAt: new Date() },
-            create: { id: 1, logoPath },
+            create: { tenantId, logoPath },
         });
         res.json({ success: true, data: { logoUrl: logoPath } });
     } catch (err) { console.error('Request failed:', err);

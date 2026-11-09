@@ -3,74 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login — School Inventory</title>
+  <title>Sign in — BY THE NUMB3RS School Inventory</title>
+  <meta name="description" content="School inventory, sales and reporting — uniforms, books and supplies, all in one place." />
   <link rel="icon" type="image/png" href="/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-  <style>
-    @media (max-width: 480px) {
-      .login-page { padding: 16px; }
-      .login-card { padding: 24px; }
-      .login-logo h1 { font-size: 20px; }
-      .login-logo-img { width: 64px; height: 64px; }
-    }
-    .login-page {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: var(--bg-base);
-      background-image:
-        radial-gradient(circle at 25% 25%, rgba(0,0,0,0.015) 1px, transparent 1px),
-        linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
-      background-size: 60px 60px, 24px 24px, 24px 24px;
-    }
-    .login-card {
-      width: 100%;
-      max-width: 400px;
-      padding: 40px;
-    }
-    .login-logo {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .login-logo-img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 16px; }
-    .login-logo h1 { font-size: 24px; font-weight: 800; text-transform: uppercase; }
-    .login-logo .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-    .login-error {
-      background: rgba(231, 76, 60, 0.15);
-      border: 1px solid rgba(231, 76, 60, 0.4);
-      color: var(--accent-red);
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 20px;
-      display: none;
-    }
-    .login-error.visible { display: block; }
-    .login-error.info {
-      background: rgba(46, 119, 211, 0.15);
-      border-color: rgba(46, 119, 211, 0.4);
-      color: var(--accent-blue);
-    }
-  </style>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="login-page">
     <div class="card login-card">
       <div class="login-logo">
-        <img id="login-logo-img" src="/logo.png" alt="School logo" class="login-logo-img" />
-        <h1 id="login-school-name">BY THE NUMB<span style="color:var(--accent-blue)">3</span>RS</h1>
+        <img src="/logo.png" alt="BY THE NUMB3RS logo" class="login-logo-img" />
+        <h1>BY THE NUMB<span style="color:var(--accent-blue)">3</span>RS</h1>
         <div class="sub">School Inventory</div>
       </div>
       <div class="login-error" id="login-error"></div>
       <form id="login-form">
         <div class="form-group">
           <label>Email</label>
-          <input type="email" name="email" required placeholder="you@school.com" autocomplete="email" />
+          <input type="email" name="email" required placeholder="you@yourschool.com" autocomplete="email" />
         </div>
         <div class="form-group">
           <label>Password</label>
@@ -80,6 +33,7 @@
           <button type="submit" class="btn btn-primary" style="width: 100%;" id="login-btn">Sign In</button>
         </div>
       </form>
+      <div class="auth-alt">New here? <a href="/signup.html">Create your school account →</a></div>
     </div>
   </div>
   <script>
@@ -87,23 +41,6 @@
     const errEl = document.getElementById('login-error');
     const form = document.getElementById('login-form');
     const btn = document.getElementById('login-btn');
-
-    // Load school branding from public settings
-    (function applyLoginBranding() {
-      fetch(API + '/settings').then(function (res) {
-        if (!res.ok) return;
-        return res.json();
-      }).then(function (data) {
-        if (!data) return;
-        const img = document.getElementById('login-logo-img');
-        const title = document.getElementById('login-school-name');
-        if (data.logoUrl && img) {
-          img.src = data.logoUrl.startsWith('http') ? data.logoUrl : (window.location.origin + data.logoUrl);
-          img.alt = data.schoolName || 'School logo';
-        }
-        if (data.schoolName && title) title.textContent = data.schoolName;
-      }).catch(function () {});
-    })();
 
     function showError(msg, isInfo) {
       errEl.textContent = msg;

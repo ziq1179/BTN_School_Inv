@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
+import { getPlan } from '../plans.js';
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
@@ -9,10 +10,12 @@ const SALT_ROUNDS = 10;
 // All user routes require ADMIN
 router.use(requireAuth, requireRole(ROLES.ADMIN));
 
-// GET /api/users - List all users
+// GET /api/users - List users in this tenant
 router.get('/', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const users = await prisma.user.findMany({
+            where: { tenantId },
             select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
             orderBy: { createdAt: 'desc' },
         });
@@ -22,9 +25,22 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST /api/users - Create user
+// POST /api/users - Create user (tenant-scoped; FREE plan user limit enforced)
 router.post('/', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
+
+        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
+        const { maxUsers } = getPlan(tenant);
+        const count = await prisma.user.count({ where: { tenantId } });
+        if (count >= maxUsers) {
+            return res.status(403).json({
+                success: false,
+                code: 'PLAN_LIMIT',
+                error: `Free plan is limited to ${maxUsers} users. Upgrade to Pro to add your whole team.`,
+            });
+        }
+
         const { email, password, name, role } = req.body;
         if (!email || !password) {
             return res.status(400).json({ success: false, error: 'Email and password required' });
@@ -45,6 +61,7 @@ router.post('/', async (req, res) => {
                 password: hash,
                 name: name || null,
                 role: validRole,
+                tenantId,
             },
             select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
         });
@@ -55,11 +72,15 @@ router.post('/', async (req, res) => {
     }
 });
 
-// PUT /api/users/:id - Update user
+// PUT /api/users/:id - Update user (tenant-scoped)
 router.put('/:id', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const id = parseInt(req.params.id);
         const { name, role, isActive, password } = req.body;
+
+        const existing = await prisma.user.findFirst({ where: { id, tenantId } });
+        if (!existing) return res.status(404).json({ success: false, error: 'User not found' });
 
         const data = {};
         if (name !== undefined) data.name = name;
@@ -70,34 +91,32 @@ router.put('/:id', async (req, res) => {
         }
 
         const user = await prisma.user.update({
-            where: { id },
+            where: { id: existing.id },
             data,
             select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
         });
 
         res.json({ success: true, data: user });
     } catch (err) { console.error('Request failed:', err);
-        if (err.code === 'P2025') {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
         res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// DELETE /api/users/:id - Delete user (cannot delete self)
+// DELETE /api/users/:id - Delete user (cannot delete self; tenant-scoped)
 router.delete('/:id', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const id = parseInt(req.params.id);
         if (id === req.session.userId) {
             return res.status(400).json({ success: false, error: 'Cannot delete your own account' });
         }
 
-        await prisma.user.delete({ where: { id } });
+        const existing = await prisma.user.findFirst({ where: { id, tenantId } });
+        if (!existing) return res.status(404).json({ success: false, error: 'User not found' });
+
+        await prisma.user.delete({ where: { id: existing.id } });
         res.json({ success: true, message: 'User deleted' });
     } catch (err) { console.error('Request failed:', err);
-        if (err.code === 'P2025') {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
         res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });

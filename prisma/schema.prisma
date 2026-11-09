@@ -7,29 +7,57 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Tenant {
+  id        Int      @id @default(autoincrement())
+  name      String // e.g. "St. Mary's School"
+  slug      String   @unique // url-safe handle, e.g. "st-marys-ak4f2"
+  plan      String   @default("FREE") // FREE | PRO
+  status    String   @default("active") // active | trialing | past_due | canceled
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+
+  // Relations
+  schools      School[]
+  categories   Category[]
+  items        Item[]
+  transactions Transaction[]
+  users        User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Category {
   id          Int      @id @default(autoincrement())
-  name        String   @unique // e.g., "Boys' Uniform", "Girls' Uniform", "Books"
+  name        String // e.g., "Boys' Uniform", "Girls' Uniform", "Books"
   description String?
   items       Item[]
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model Item {
   id          Int      @id @default(autoincrement())
-  sku         String   @unique // Unique Item Coding
+  sku         String // Unique per tenant
   name        String
   description String?
   category    Category @relation(fields: [categoryId], references: [id])
   categoryId  Int
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    Int
 
-  // Classification (Phase 2 readiness)
-  size        String? // e.g., "32", "Large"
-  class       String? // e.g., "Class 5"
-  subject     String? // e.g., "Mathematics"
+  // Classification
+  size        String?
+  class       String?
+  subject     String?
 
-  // Pricing & Stock (Phase 3/4 readiness)
+  // Pricing & Stock
   costPrice   Float    @default(0)
   salePrice   Float    @default(0)
   stock       Int      @default(0) // Current balance
@@ -38,6 +66,9 @@ model Item {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
 }
 
 model Transaction {
@@ -48,24 +79,34 @@ model Transaction {
   quantity  Int      // Can be positive or negative
   price     Float?   // Price at the time of transaction
   reference String?  // Receipt No or Invoice No
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  Int
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model User {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
+  email     String   @unique // global — login by email+password without school selector
   password  String   // bcrypt hash
   name      String?
   role      String   @default("STAFF") // ADMIN, MANAGER, STAFF, VIEWER
   isActive  Boolean  @default(true)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
-// Single-row branding for white-label (client school name + logo)
+// White-label branding per tenant (school name + logo)
 model School {
   id        Int      @id @default(autoincrement())
-  name      String   @default("By The Numb3rs")
+  name      String   @default("My School")
   logoPath  String?  // e.g. /uploads/logo.png
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  Int      @unique
   updatedAt DateTime @updatedAt
 }

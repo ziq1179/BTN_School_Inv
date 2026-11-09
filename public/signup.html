@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create your school account — BY THE NUMB3RS School Inventory</title>
+  <meta name="description" content="Free inventory, sales and reporting for schools — uniforms, books and supplies. Start in minutes." />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="login-page">
+    <div class="card login-card signup-card">
+      <div class="login-logo">
+        <img src="/logo.png" alt="BY THE NUMB3RS logo" class="login-logo-img" />
+        <h1>BY THE NUMB<span style="color:var(--accent-blue)">3</span>RS</h1>
+        <div class="sub">School Inventory</div>
+      </div>
+      <ul class="signup-benefits">
+        <li>Free forever for small schools — 50 items, 3 users</li>
+        <li>Live dashboard: stock value, sales &amp; profit charts</li>
+        <li>Uniforms, books &amp; supplies in one place</li>
+      </ul>
+      <div class="login-error" id="signup-error"></div>
+      <form id="signup-form">
+        <div class="form-group">
+          <label>School name</label>
+          <input type="text" name="schoolName" required placeholder="e.g. St. Mary's School" autocomplete="organization" />
+        </div>
+        <div class="form-group">
+          <label>Your name</label>
+          <input type="text" name="name" required placeholder="e.g. Ayesha Khan" autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label>Work email</label>
+          <input type="email" name="email" required placeholder="you@yourschool.com" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label>Password <span style="opacity:.6;font-weight:400">(min 8 characters)</span></label>
+          <input type="password" name="password" required minlength="8" placeholder="••••••••" autocomplete="new-password" />
+        </div>
+        <div class="form-group">
+          <label>Confirm password</label>
+          <input type="password" name="confirmPassword" required minlength="8" placeholder="••••••••" autocomplete="new-password" />
+        </div>
+        <div class="form-actions" style="margin-top: 20px; padding-top: 0; border: none;">
+          <button type="submit" class="btn btn-primary" style="width: 100%;" id="signup-btn">Create my school account</button>
+        </div>
+      </form>
+      <div class="auth-alt">Already have an account? <a href="/login.html">Sign in</a></div>
+    </div>
+  </div>
+  <script>
+    const API = window.location.origin + '/api';
+    const errEl = document.getElementById('signup-error');
+    const form = document.getElementById('signup-form');
+    const btn = document.getElementById('signup-btn');
+
+    function showError(msg, isInfo) {
+      errEl.textContent = msg;
+      errEl.classList.add('visible');
+      errEl.classList.toggle('info', !!isInfo);
+    }
+    function hideError() { errEl.classList.remove('visible'); }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+      const fd = new FormData(form);
+      const password = fd.get('password');
+      if (password !== fd.get('confirmPassword')) {
+        showError('Passwords do not match');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Creating your account...';
+      try {
+        const res = await fetch(API + '/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            schoolName: fd.get('schoolName'),
+            name: fd.get('name'),
+            email: fd.get('email'),
+            password: fd.get('password'),
+          }),
+        });
+        let data;
+        try { data = await res.json(); } catch { showError('Server error. Please try again.'); return; }
+        if (!data.success) { showError(data.error || 'Signup failed'); return; }
+        window.location.href = '/';
+      } catch (err) {
+        showError('Cannot connect to server. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create my school account';
+      }
+    });
+  </script>
+</body>
+</html>

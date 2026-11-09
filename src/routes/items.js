@@ -1,13 +1,13 @@
 import express from 'express';
 import prisma from '../db.js';
 import { requireAuth, minRole, ROLES } from '../middleware/auth.js';
+import { getPlan } from '../plans.js';
 
 const router = express.Router();
 router.use(requireAuth);
 
 // Generate SKU automatically if not provided
 // Format: [CategoryPrefix]-[TypePrefix]-[SizeOrClass]
-// E.g., BUN-SH-32 (Boys Uniform - Shirt - Size 32)
 function generateSku(categoryName, name, size, itemClass) {
     const catPart = categoryName
         .replace(/[^a-zA-Z]/g, '')
@@ -21,12 +21,13 @@ function generateSku(categoryName, name, size, itemClass) {
     return `${catPart}-${namePart}-${suffix}`;
 }
 
-// GET /api/items - List all items with optional filters & search
+// GET /api/items - List items with optional filters & search (tenant-scoped)
 router.get('/', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const { search, categoryId, size, itemClass, subject, lowStock } = req.query;
 
-        const where = {};
+        const where = { tenantId };
 
         if (categoryId) where.categoryId = parseInt(categoryId);
         if (size) where.size = { equals: size, mode: 'insensitive' };
@@ -48,7 +49,6 @@ router.get('/', async (req, res) => {
             orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
         });
 
-        // Compute total stock value
         const totalValue = items.reduce((sum, item) => sum + item.stock * item.costPrice, 0);
 
         res.json({
@@ -62,11 +62,12 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/items/sku/:sku - Look up item by SKU code (must be before /:id)
+// GET /api/items/sku/:sku - Look up item by SKU (tenant-scoped; must be before /:id)
 router.get('/sku/:sku', async (req, res) => {
     try {
-        const item = await prisma.item.findUnique({
-            where: { sku: req.params.sku.toUpperCase() },
+        const tenantId = req.session.tenantId;
+        const item = await prisma.item.findFirst({
+            where: { tenantId, sku: req.params.sku.toUpperCase() },
             include: { category: true },
         });
         if (!item) return res.status(404).json({ success: false, error: `No item found with SKU: ${req.params.sku}` });
@@ -76,11 +77,12 @@ router.get('/sku/:sku', async (req, res) => {
     }
 });
 
-// GET /api/items/:id - Get single item with transaction history
+// GET /api/items/:id - Get single item with transaction history (tenant-scoped)
 router.get('/:id', async (req, res) => {
     try {
-        const item = await prisma.item.findUnique({
-            where: { id: parseInt(req.params.id) },
+        const tenantId = req.session.tenantId;
+        const item = await prisma.item.findFirst({
+            where: { id: parseInt(req.params.id), tenantId },
             include: {
                 category: true,
                 transactions: { orderBy: { createdAt: 'desc' }, take: 50 },
@@ -93,9 +95,25 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/items - Create a new item
+// POST /api/items - Create a new item (tenant-scoped; FREE plan item limit enforced)
 router.post('/', minRole(ROLES.STAFF), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
+
+        const planLimit = await prisma.$transaction(async (tx) => {
+            const tenant = await tx.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
+            const { maxItems } = getPlan(tenant);
+            const count = await tx.item.count({ where: { tenantId } });
+            return { count, maxItems };
+        });
+        if (planLimit.count >= planLimit.maxItems) {
+            return res.status(403).json({
+                success: false,
+                code: 'PLAN_LIMIT',
+                error: `Free plan is limited to ${planLimit.maxItems} items. Upgrade to Pro for unlimited inventory.`,
+            });
+        }
+
         const {
             name, description, categoryId, size, itemClass, subject,
             costPrice, salePrice, stock, sku,
@@ -105,8 +123,8 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
             return res.status(400).json({ success: false, error: 'name and categoryId are required' });
         }
 
-        // Lookup category for SKU generation
-        const category = await prisma.category.findUnique({ where: { id: parseInt(categoryId) } });
+        // Lookup category for SKU generation (tenant-scoped)
+        const category = await prisma.category.findFirst({ where: { id: parseInt(categoryId), tenantId } });
         if (!category) return res.status(404).json({ success: false, error: 'Category not found' });
 
         const finalSku = sku
@@ -127,6 +145,7 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
                 costPrice: parseFloat(costPrice) || 0,
                 salePrice: parseFloat(salePrice) || 0,
                 stock: initialStock,
+                tenantId,
                 transactions: initialStock > 0
                     ? {
                         create: {
@@ -134,6 +153,7 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
                             quantity: initialStock,
                             price: parseFloat(costPrice) || 0,
                             reference: 'Initial stock entry',
+                            tenantId,
                         },
                     }
                     : undefined,
@@ -150,13 +170,17 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
     }
 });
 
-// PUT /api/items/:id - Update item details (not stock â€” use /stock-in or /sale for that)
+// PUT /api/items/:id - Update item details (tenant-scoped)
 router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const { name, description, size, itemClass, subject, costPrice, salePrice } = req.body;
 
-        const item = await prisma.item.update({
-            where: { id: parseInt(req.params.id) },
+        const item = await prisma.item.findFirst({ where: { id: parseInt(req.params.id), tenantId } });
+        if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
+
+        const updated = await prisma.item.update({
+            where: { id: item.id },
             data: {
                 name,
                 description,
@@ -168,18 +192,16 @@ router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
             },
             include: { category: true },
         });
-        res.json({ success: true, data: item });
+        res.json({ success: true, data: updated });
     } catch (err) { console.error('Request failed:', err);
-        if (err.code === 'P2025') {
-            return res.status(404).json({ success: false, error: 'Item not found' });
-        }
         res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// POST /api/items/:id/stock-in - Add new stock (e.g., new delivery arrived)
+// POST /api/items/:id/stock-in - Add stock (tenant-scoped, atomic)
 router.post('/:id/stock-in', minRole(ROLES.STAFF), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const { quantity, price, reference } = req.body;
         const qty = parseInt(quantity);
 
@@ -187,40 +209,50 @@ router.post('/:id/stock-in', minRole(ROLES.STAFF), async (req, res) => {
             return res.status(400).json({ success: false, error: 'quantity must be a positive integer' });
         }
 
-        // Use a transaction to guarantee consistency
-        const [transaction, updatedItem] = await prisma.$transaction([
-            prisma.transaction.create({
-                data: {
-                    itemId: parseInt(req.params.id),
-                    type: 'STOCK_IN',
-                    quantity: qty,
-                    price: price ? parseFloat(price) : undefined,
-                    reference,
-                },
-            }),
-            prisma.item.update({
-                where: { id: parseInt(req.params.id) },
-                data: { stock: { increment: qty } },
-                include: { category: true },
-            }),
-        ]);
+        const itemId = parseInt(req.params.id);
+
+        const result = await prisma.$transaction(async (tx) => {
+            const existing = await tx.item.findFirst({ where: { id: itemId, tenantId } });
+            if (!existing) {
+                const e = new Error('Item not found');
+                e.status = 404;
+                throw e;
+            }
+            const [transaction, updatedItem] = await Promise.all([
+                tx.transaction.create({
+                    data: {
+                        itemId: existing.id,
+                        type: 'STOCK_IN',
+                        quantity: qty,
+                        price: price ? parseFloat(price) : undefined,
+                        reference,
+                        tenantId,
+                    },
+                }),
+                tx.item.update({
+                    where: { id: existing.id },
+                    data: { stock: { increment: qty } },
+                    include: { category: true },
+                }),
+            ]);
+            return { transaction, updatedItem };
+        });
 
         res.json({
             success: true,
-            message: `Added ${qty} units. New stock: ${updatedItem.stock}`,
-            data: { item: updatedItem, transaction },
+            message: `Added ${qty} units. New stock: ${result.updatedItem.stock}`,
+            data: { item: result.updatedItem, transaction: result.transaction },
         });
     } catch (err) { console.error('Request failed:', err);
-        if (err.code === 'P2025') {
-            return res.status(404).json({ success: false, error: 'Item not found' });
-        }
+        if (err.status === 404) return res.status(404).json({ success: false, error: err.message });
         res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// POST /api/items/:id/sale - Record a sale (reduces stock)
+// POST /api/items/:id/sale - Record a sale (tenant-scoped, atomic, never negative)
 router.post('/:id/sale', minRole(ROLES.STAFF), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const { quantity, price, reference } = req.body;
         const qty = parseInt(quantity);
 
@@ -228,54 +260,66 @@ router.post('/:id/sale', minRole(ROLES.STAFF), async (req, res) => {
             return res.status(400).json({ success: false, error: 'quantity must be a positive integer' });
         }
 
-        // Check current stock first
-        const currentItem = await prisma.item.findUnique({ where: { id: parseInt(req.params.id) } });
-        if (!currentItem) return res.status(404).json({ success: false, error: 'Item not found' });
+        const itemId = parseInt(req.params.id);
 
-        if (currentItem.stock < qty) {
-            return res.status(400).json({
-                success: false,
-                error: `Insufficient stock. Available: ${currentItem.stock}, requested: ${qty}`,
-            });
-        }
-
-        const salePrice = price ? parseFloat(price) : currentItem.salePrice;
-
-        const [transaction, updatedItem] = await prisma.$transaction([
-            prisma.transaction.create({
-                data: {
-                    itemId: parseInt(req.params.id),
-                    type: 'SALE',
-                    quantity: -qty, // negative = going out
-                    price: salePrice,
-                    reference,
-                },
-            }),
-            prisma.item.update({
-                where: { id: parseInt(req.params.id) },
+        const result = await prisma.$transaction(async (tx) => {
+            const existing = await tx.item.findFirst({ where: { id: itemId, tenantId } });
+            if (!existing) {
+                const e = new Error('Item not found');
+                e.status = 404;
+                throw e;
+            }
+            // Atomic conditional decrement — cannot go negative
+            const decremented = await tx.item.updateMany({
+                where: { id: existing.id, tenantId, stock: { gte: qty } },
                 data: { stock: { decrement: qty } },
-                include: { category: true },
-            }),
-        ]);
+            });
+            if (decremented.count === 0) {
+                const e = new Error(`Insufficient stock. Available: ${existing.stock}, requested: ${qty}`);
+                e.status = 400;
+                throw e;
+            }
+            const salePrice = price ? parseFloat(price) : existing.salePrice;
+            const [transaction, updatedItem] = await Promise.all([
+                tx.transaction.create({
+                    data: {
+                        itemId: existing.id,
+                        type: 'SALE',
+                        quantity: -qty,
+                        price: salePrice,
+                        reference,
+                        tenantId,
+                    },
+                }),
+                tx.item.findFirst({ where: { id: existing.id }, include: { category: true } }),
+            ]);
+            return { transaction, updatedItem, salePrice };
+        });
 
-        const revenue = qty * salePrice;
+        const revenue = qty * result.salePrice;
 
         res.json({
             success: true,
-            message: `Sold ${qty} unit(s) @ PKR ${salePrice}. Remaining stock: ${updatedItem.stock}`,
+            message: `Sold ${qty} unit(s) @ PKR ${result.salePrice}. Remaining stock: ${result.updatedItem.stock}`,
             revenue,
-            data: { item: updatedItem, transaction },
+            data: { item: result.updatedItem, transaction: result.transaction },
         });
     } catch (err) { console.error('Request failed:', err);
+        if (err.status === 404) return res.status(404).json({ success: false, error: err.message });
+        if (err.status === 400) return res.status(400).json({ success: false, error: err.message });
         res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });
 
-// DELETE /api/items/:id - Delete an item (only if no transactions)
+// DELETE /api/items/:id - Delete an item (only if no transactions; tenant-scoped)
 router.delete('/:id', minRole(ROLES.STAFF), async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
+        const item = await prisma.item.findFirst({ where: { id: parseInt(req.params.id), tenantId } });
+        if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
+
         const txCount = await prisma.transaction.count({
-            where: { itemId: parseInt(req.params.id) },
+            where: { itemId: item.id, tenantId },
         });
         if (txCount > 0) {
             return res.status(400).json({
@@ -283,12 +327,9 @@ router.delete('/:id', minRole(ROLES.STAFF), async (req, res) => {
                 error: `Cannot delete: item has ${txCount} transaction record(s). Consider deactivating instead.`,
             });
         }
-        await prisma.item.delete({ where: { id: parseInt(req.params.id) } });
+        await prisma.item.delete({ where: { id: item.id } });
         res.json({ success: true, message: 'Item deleted' });
     } catch (err) { console.error('Request failed:', err);
-        if (err.code === 'P2025') {
-            return res.status(404).json({ success: false, error: 'Item not found' });
-        }
         res.status(500).json({ success: false, error: 'Something went wrong. Please try again.' });
     }
 });

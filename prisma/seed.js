@@ -3,21 +3,44 @@ import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+const TENANT_SLUG = process.env.SEED_TENANT_SLUG || 'by-the-numb3rs';
 
 async function main() {
   console.log('Start seeding...');
 
-  // 0. Create default admin user
+  // 0. Ensure the default tenant exists (the original single-tenant school)
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: TENANT_SLUG },
+    update: {},
+    create: {
+      name: 'By The Numb3rs',
+      slug: TENANT_SLUG,
+      plan: 'PRO',
+      status: 'active',
+    },
+  });
+  const tenantId = tenant.id;
+  console.log(`Tenant: ${tenant.name} (id ${tenantId}, plan ${tenant.plan})`);
+
+  // 0b. Ensure the tenant's white-label branding row exists
+  await prisma.school.upsert({
+    where: { tenantId },
+    update: {},
+    create: { tenantId, name: tenant.name },
+  });
+
+  // 1. Create default admin + staff users (global unique email)
   const adminEmail = 'admin@school.local';
   const adminPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: { tenantId },
     create: {
       email: adminEmail,
       password: adminPassword,
       name: 'Administrator',
       role: 'ADMIN',
+      tenantId,
     },
   });
   console.log(`Created/Updated admin user: ${admin.email} (password: admin123)`);
@@ -25,12 +48,12 @@ async function main() {
   const staffPassword = await bcrypt.hash('staff123', 10);
   const staff = await prisma.user.upsert({
     where: { email: 'staff@school.local' },
-    update: {},
-    create: { email: 'staff@school.local', password: staffPassword, name: 'Sales Staff', role: 'STAFF' },
+    update: { tenantId },
+    create: { email: 'staff@school.local', password: staffPassword, name: 'Sales Staff', role: 'STAFF', tenantId },
   });
   console.log(`Created/Updated staff user: ${staff.email} (password: staff123)`);
 
-  // 1. Create Categories
+  // 2. Create categories (unique per tenant)
   const categories = [
     { name: "Boys' Uniform", description: 'All items related to boys school uniform' },
     { name: "Girls' Uniform", description: 'All items related to girls school uniform' },
@@ -39,14 +62,14 @@ async function main() {
 
   for (const cat of categories) {
     const category = await prisma.category.upsert({
-      where: { name: cat.name },
+      where: { tenantId_name: { tenantId, name: cat.name } },
       update: {},
-      create: cat,
+      create: { ...cat, tenantId },
     });
     console.log(`Created/Updated category: ${category.name}`);
   }
 
-  // 2. Create sample items to demonstrate Item Coding (SKU)
+  // 3. Create sample items to demonstrate Item Coding (SKU)
   const items = [
     {
       sku: 'BUN-SH-32',
@@ -80,12 +103,12 @@ async function main() {
 
   for (const itemData of items) {
     const category = await prisma.category.findUnique({
-      where: { name: itemData.categoryName },
+      where: { tenantId_name: { tenantId, name: itemData.categoryName } },
     });
 
     if (category) {
       const item = await prisma.item.upsert({
-        where: { sku: itemData.sku },
+        where: { tenantId_sku: { tenantId, sku: itemData.sku } },
         update: {},
         create: {
           sku: itemData.sku,
@@ -97,12 +120,14 @@ async function main() {
           salePrice: itemData.salePrice,
           stock: itemData.stock,
           categoryId: category.id,
+          tenantId,
           transactions: {
             create: {
               type: 'INITIAL_BALANCE',
               quantity: itemData.stock,
               price: itemData.costPrice,
               reference: 'Seeding initial inventory',
+              tenantId,
             },
           },
         },

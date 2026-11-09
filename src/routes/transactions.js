@@ -5,12 +5,13 @@ import { requireAuth } from '../middleware/auth.js';
 const router = express.Router();
 router.use(requireAuth);
 
-// GET /api/transactions - List transactions with filters
+// GET /api/transactions - List transactions with filters (tenant-scoped)
 router.get('/', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const { itemId, type, limit = 100 } = req.query;
 
-        const where = {};
+        const where = { tenantId };
         if (itemId) where.itemId = parseInt(itemId);
         if (type) where.type = type.toUpperCase();
 
@@ -29,9 +30,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET /api/transactions/summary - Dashboard summary statistics
+// GET /api/transactions/summary - Dashboard summary statistics (tenant-scoped)
 router.get('/summary', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const [
             totalItems,
             totalCategories,
@@ -39,17 +41,17 @@ router.get('/summary', async (req, res) => {
             recentSales,
             lowStockItems,
         ] = await Promise.all([
-            prisma.item.count(),
-            prisma.category.count(),
-            prisma.item.findMany({ select: { stock: true, costPrice: true, salePrice: true } }),
+            prisma.item.count({ where: { tenantId } }),
+            prisma.category.count({ where: { tenantId } }),
+            prisma.item.findMany({ where: { tenantId }, select: { stock: true, costPrice: true, salePrice: true } }),
             prisma.transaction.findMany({
-                where: { type: 'SALE' },
+                where: { type: 'SALE', tenantId },
                 include: { item: { select: { name: true, sku: true } } },
                 orderBy: { createdAt: 'desc' },
                 take: 10,
             }),
             prisma.item.findMany({
-                where: { stock: { lte: 10 } },
+                where: { stock: { lte: 10 }, tenantId },
                 include: { category: { select: { name: true } } },
                 orderBy: { stock: 'asc' },
             }),
@@ -65,9 +67,8 @@ router.get('/summary', async (req, res) => {
         );
         const totalUnitsInStock = allItems.reduce((sum, item) => sum + item.stock, 0);
 
-        // Total revenue from all sales
         const salesRevenue = await prisma.transaction.aggregate({
-            where: { type: 'SALE' },
+            where: { type: 'SALE', tenantId },
             _sum: { price: true },
         });
 
@@ -90,17 +91,17 @@ router.get('/summary', async (req, res) => {
     }
 });
 
-// GET /api/transactions/item-stats - Item-wise sales revenue and profit for charts
+// GET /api/transactions/item-stats - Item-wise sales revenue and profit (tenant-scoped)
 router.get('/item-stats', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const sales = await prisma.transaction.findMany({
-            where: { type: 'SALE' },
+            where: { type: 'SALE', tenantId },
             include: {
                 item: { select: { id: true, name: true, sku: true, costPrice: true } },
             },
         });
 
-        // Aggregate by item: { itemId, itemName, sku, revenue, qtySold, profit }
         const byItem = new Map();
         for (const tx of sales) {
             const qty = Math.abs(tx.quantity);
@@ -138,11 +139,12 @@ router.get('/item-stats', async (req, res) => {
     }
 });
 
-// GET /api/transactions/category-stats - Category-wise sales revenue for pie chart
+// GET /api/transactions/category-stats - Category-wise sales revenue (tenant-scoped)
 router.get('/category-stats', async (req, res) => {
     try {
+        const tenantId = req.session.tenantId;
         const sales = await prisma.transaction.findMany({
-            where: { type: 'SALE' },
+            where: { type: 'SALE', tenantId },
             include: {
                 item: { include: { category: { select: { id: true, name: true } } } },
             },

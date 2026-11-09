@@ -22,3 +22,6 @@ Thumbs.db
 
 # Vercel project link
 .vercel/
+
+.pgdata/
+.pgdata-test/
