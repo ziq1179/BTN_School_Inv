@@ -1,113 +1,82 @@
-# School Inventory Management System — BY THE NUMB3RS
+# School Inventory — BY THE NUMB3RS
 
-Inventory, sales and stock management for schools — uniforms, books and supplies.
-Track stock levels, record sales, manage users with role-based access, and
-white-label the app with the school's own name and logo.
+A multi-tenant inventory and sales platform for schools, solo shops and retailers selling uniforms, books and supplies. Self-serve signup, Stripe subscription billing, and an AI assistant grounded in your own data.
 
-**Live demo:** https://btn-school-inv-7dh1.vercel.app/login.html
-**Demo login:** `demo@school.local` / `demo1234` (read-only VIEWER account — safe to use)
+**Live:** https://btn-school-inv-7dh1.vercel.app/login.html
+**Demo login:** `demo@school.local` / `demo1234` (read-only VIEWER account — safe to hand out)
 
-![Dashboard](docs/screenshots/dashboard.png)
+![Dashboard](docs/screenshots/saas-dashboard.png)
 
 | Login | Inventory | Transactions |
 | --- | --- | --- |
-| ![Login](docs/screenshots/login.png) | ![Inventory](docs/screenshots/items.png) | ![Transactions](docs/screenshots/transactions.png) |
+| ![Login](docs/screenshots/saas-login.png) | ![Inventory](docs/screenshots/items.png) | ![Transactions](docs/screenshots/transactions.png) |
 
-## Features
+## What it does
 
-- **Dashboard** — product types, units in stock, stock cost value, retail value,
-  potential profit, low-stock alerts, recent sales, and item-wise revenue/profit
-  charts (Chart.js)
-- **Inventory** — items with SKU, category, size/class, cost & sale price, live
-  stock balance; search, category filter, "low stock only" toggle
-- **Categories** — e.g. Boys' Uniform, Girls' Uniform, Books
-- **Transactions** — full ledger: `INITIAL_BALANCE`, stock-in, `SALE` and more,
-  with quantity, price, reference and timestamp
-- **POS-style sales flow** — pick item → quantity → payment → printable receipt;
-  stock is decremented and a transaction is recorded atomically
-- **Role-based access control** — `ADMIN > MANAGER > STAFF > VIEWER`
-  - ADMIN: full access incl. user management and school settings
-  - MANAGER/STAFF: inventory, categories, transactions (level-gated)
-  - VIEWER: read-only everywhere (used for this public demo)
-- **White-label** — school name + logo configurable at runtime (Settings page);
-  shown on login page and sidebar
-- **Auth** — cookie-session sessions (httpOnly, secure in prod, sameSite=lax),
-  bcrypt password hashing
+- **Multi-tenant SaaS** — every school gets its own isolated data; white-label school name + logo configurable per tenant
+- **Self-serve signup** — create a school account in seconds, no approval flow
+- **Stripe subscriptions** — Free tier (50 items, 3 users) and **Pro ($29/mo)**: unlimited items & users, all AI features
+- **AI assistant (Groq/Llama 3.3)** — ask questions in plain English ("what's low in stock?"), 30-day analyst insights, reorder suggestions from 60-day sales velocity, auto-generated item descriptions
+- **Dashboard** — stock units, stock cost vs retail value, potential profit, low-stock alerts, recent sales, item-wise revenue/profit charts
+- **Inventory** — SKU, category, size/class, cost/sale price, stock balance, search, filters
+- **Transactions ledger** — `INITIAL_BALANCE`, stock-in, `SALE`, with receipts and print support
+- **Role-based access** — `ADMIN > MANAGER > STAFF > VIEWER`, enforced server-side
+- **POS-style sale flow** — pick item → quantity → payment → printable receipt
 
 ## Tech stack
 
-- **Backend:** Node.js, Express, Prisma ORM (`@prisma/client`)
-- **Database:** PostgreSQL (Neon serverless Postgres in production)
-- **Frontend:** Vanilla JS, Chart.js — static files served from `public/`
-- **Auth:** `cookie-session`, `bcryptjs`, custom role hierarchy middleware
-- **Hosting:** Vercel (Express framework detected, serverless functions, static
-  assets) + Neon Postgres, wired via environment variables
+- **Backend:** Node.js, Express, Prisma ORM, Zod validation, helmet, express-rate-limit
+- **Database:** PostgreSQL (Neon serverless in production; migrations + seeds reproducible locally)
+- **Frontend:** Vanilla JS SPA (no build step), Chart.js, Montserrat
+- **Payments:** Stripe Checkout + Billing Portal + signed webhooks
+- **AI:** Groq API (Llama 3.3 70B), context built from the tenant's live DB
+- **Hosting:** Vercel (serverless functions + static assets), Neon Postgres, GitHub auto-deploy on push
+- **Tests:** `node:test` + embedded Postgres integration tests (11 passing), GitHub Actions CI
 
-## Architecture
+## Quick start (local)
 
-```
-public/            static frontend (SPA-style views, no build step)
-src/
-  app.js           express app: middleware, static serving, routes, error handler
-  server.js        local entry point
-  db.js            Prisma client (DATABASE_URL)
-  middleware/auth.js   requireAuth / requireRole / minRole
-  routes/          auth, users, categories, items, transactions, settings
-prisma/
-  schema.prisma    Category, Item, Transaction, User, School
-  migrations/      PostgreSQL migrations
-  seed.js          dev seed (admin/staff users, sample inventory)
-```
-
-- Sales/stock movements are recorded as **transactions**; current stock is a
-  balance updated inside the same request flow.
-- The frontend calls same-origin `/api/*`; no separate API client or build
-  pipeline — deploys as one Express app on Vercel.
-- White-label branding is stored in a `School` table (name, logo path) and read
-  by the login page and app shell via `GET /api/settings`.
-
-## Local development
+Requires Node 22+.
 
 ```bash
 npm install
-cp .env.example .env       # set DATABASE_URL (PostgreSQL) and SESSION_SECRET
-npx prisma migrate deploy  # create tables
-npm run seed               # optional: dev seed (creates admin@school.local / admin123)
+cp .env.example .env       # defaults use a local Postgres
+node scripts/dev-db.mjs    # embedded Postgres on :54329 (Ctrl+C to stop)
+npx prisma migrate deploy
+npm run seed               # demo data (admin@school.local / admin123)
 npm start                  # http://localhost:3000
 ```
 
-Environment variables:
-
-| Variable | Description |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string (Neon pooler recommended for serverless) |
-| `SESSION_SECRET` | Long random string for signing session cookies |
-| `NODE_ENV` | `development` or `production` |
-| `PORT` | Local server port (default `3000`) |
-
-> Seeded dev accounts (`admin@school.local` / `admin123`) are for local
-> development only — always reset or remove them in real deployments.
-
 ## Deployment (Vercel)
 
-The project is deployed with Vercel's zero-config Express detection. Set these
-environment variables on the project (production + preview): `DATABASE_URL`,
-`SESSION_SECRET`, `NODE_ENV=production` — then deploy. Screenshots above are
-from the live site.
+`npm run build` runs `prisma generate && prisma migrate deploy` — Vercel builds apply pending migrations automatically on every push. Required env vars:
 
-## Security notes
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Runtime pooler connection (Neon) |
+| `DIRECT_URL` | Unpooled direct connection for migrations |
+| `SESSION_SECRET` | Session cookie signing |
+| `NODE_ENV` | `production` in prod |
+| `GROQ_API_KEY` | Enables AI features (console.groq.com) |
+| `STRIPE_SECRET_KEY` | Stripe API key (billing) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `STRIPE_PRO_PRICE_ID` | Price id for the Pro subscription |
 
-- Passwords hashed with bcrypt; sessions are signed httpOnly cookies
-- VIEWER demo account is read-only; destructive routes are role-gated
-- 500 responses return a generic message (internal details are logged server-side)
-- Secrets live in environment variables, never in the repo (`.env` is gitignored)
+## Security & quality
 
-## Roadmap / known limitations
+- Cookie-session auth, bcrypt password hashing, httpOnly+secure cookies
+- Same-origin enforcement, helmet CSP, rate limiting (API/auth/AI)
+- Zod-validated inputs on all write endpoints, `@unique(tenantId, …)` + FK cascades
+- Stock can never go negative (atomic conditional decrement in a DB transaction)
+- 500s return generic messages; internals logged server-side
+- Integration tests + CI on every push
 
-- Automated tests are not in place yet (manual QA + smoke tests)
-- Single-school schema (no multi-tenant support)
-- Stock deduction and sale recording are handled in the route layer, not in a
-  DB transaction — worth hardening under concurrency
+## Roadmap
+
+- Usage-based / seat-based Pro tiers, annual plan discount
+- CSV import/export for inventory
+- Low-stock email notifications
+- Multi-store support (one school, several branches)
+- Audit log for inventory changes
 
 ## License
 
