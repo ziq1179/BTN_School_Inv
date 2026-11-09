@@ -51,6 +51,8 @@ app.use(helmet({
         directives: {
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', "'unsafe-inline'"],
+            // The app uses inline onclick handlers (e.g. openModal) — allow attribute scripts
+            scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
             fontSrc: ["'self'", 'https://fonts.gstatic.com'],
             imgSrc: ["'self'", 'data:'],
