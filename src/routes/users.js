@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
 import { getPlan } from '../plans.js';
+import { validate, userCreateSchema, userUpdateSchema } from '../validation.js';
 
 const router = express.Router();
 const SALT_ROUNDS = 10;
@@ -26,7 +27,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/users - Create user (tenant-scoped; FREE plan user limit enforced)
-router.post('/', async (req, res) => {
+router.post('/', validate(userCreateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
 
@@ -73,7 +74,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/users/:id - Update user (tenant-scoped)
-router.put('/:id', async (req, res) => {
+router.put('/:id', validate(userUpdateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const id = parseInt(req.params.id);

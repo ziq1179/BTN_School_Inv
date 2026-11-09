@@ -3,29 +3,14 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import prisma from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
+import { validate, signupSchema, loginSchema } from '../validation.js';
 
 const router = express.Router();
 
-const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const passwordMin = 8;
-
 // POST /api/auth/signup — self-serve: creates tenant + admin user + branding row
-router.post('/signup', async (req, res) => {
+router.post('/signup', validate(signupSchema), async (req, res) => {
     try {
-        const { schoolName, name, email, password } = req.body || {};
-
-        if (!schoolName || typeof schoolName !== 'string' || schoolName.trim().length < 2) {
-            return res.status(400).json({ success: false, error: 'School name is required' });
-        }
-        if (!name || typeof name !== 'string' || name.trim().length < 2) {
-            return res.status(400).json({ success: false, error: 'Your name is required' });
-        }
-        if (!email || typeof email !== 'string' || !emailRe.test(email.trim())) {
-            return res.status(400).json({ success: false, error: 'A valid email is required' });
-        }
-        if (!password || typeof password !== 'string' || password.length < passwordMin) {
-            return res.status(400).json({ success: false, error: `Password must be at least ${passwordMin} characters` });
-        }
+        const { schoolName, name, email, password } = req.body;
 
         const normalizedEmail = email.trim().toLowerCase();
         const normalizedSchool = schoolName.trim();
@@ -94,9 +79,9 @@ router.post('/signup', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginSchema), async (req, res) => {
     try {
-        const { email, password } = req.body || {};
+        const { email, password } = req.body;
         if (!email || !password) {
             return res.status(400).json({ success: false, error: 'Email and password required' });
         }

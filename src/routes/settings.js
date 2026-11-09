@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import prisma from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
+import { validate, settingsUpdateSchema } from '../validation.js';
 
 const router = express.Router();
 
@@ -42,7 +43,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/settings — update school name (admin only)
-router.put('/', requireAuth, requireRole(ROLES.ADMIN), async (req, res) => {
+router.put('/', requireAuth, requireRole(ROLES.ADMIN), validate(settingsUpdateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const { schoolName } = req.body;

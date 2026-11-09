@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../db.js';
 import { requireAuth, minRole, ROLES } from '../middleware/auth.js';
+import { validate, categorySchema } from '../validation.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -42,7 +43,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/categories - Create a new category (tenant-scoped)
-router.post('/', minRole(ROLES.STAFF), async (req, res) => {
+router.post('/', minRole(ROLES.STAFF), validate(categorySchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const { name, description } = req.body;
@@ -63,7 +64,7 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
 });
 
 // PUT /api/categories/:id - Update a category (tenant-scoped)
-router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
+router.put('/:id', minRole(ROLES.STAFF), validate(categorySchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const { name, description } = req.body;

@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
-import cors from 'cors';
 import morgan from 'morgan';
 import cookieSession from 'cookie-session';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -19,8 +20,8 @@ import aiRoutes from './routes/ai.js';
 
 const app = express();
 
-// Required behind reverse proxy (Render, etc.): trust X-Forwarded-* headers for cookies & HTTPS
-app.set('trust proxy', true);
+// Required behind one reverse proxy (Vercel/Render): trust the first forwarded hop only
+app.set('trust proxy', 1);
 
 // Netlify: rewrite /.netlify/functions/api/* to /api/* so Express routes match
 app.use((req, res, next) => {
@@ -42,7 +43,69 @@ try {
 // ── Middleware ──────────────────────────────────────────────────────────────
 // Stripe webhook must see the raw body — mount BEFORE express.json()
 app.use('/api/stripe', stripeWebhookRoutes);
-app.use(cors({ origin: true, credentials: true }));
+
+// Security headers. The app uses inline styles/scripts and third-party CDNs
+// (jsdelivr for Chart.js, Google Fonts) — CSP is scoped to exactly those.
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', "'unsafe-inline'"],
+            styleSrc: ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+            imgSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'self'"],
+        },
+    },
+    crossOriginEmbedderPolicy: false,
+}));
+
+// Same-origin only: the frontend always calls /api on its own host, so any
+// cross-origin request carrying an Origin header is rejected.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+        try {
+            const { host } = new URL(origin);
+            if (host !== req.headers.host && !ALLOWED_ORIGINS.includes(origin)) {
+                return res.status(403).json({ success: false, error: 'Cross-origin request blocked' });
+            }
+        } catch {
+            return res.status(403).json({ success: false, error: 'Invalid origin' });
+        }
+    }
+    next();
+});
+
+// Rate limiting — generous for reads, stricter for auth and AI
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many requests, please slow down' },
+});
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many attempts, please wait a few minutes' },
+});
+const aiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'AI rate limit reached, please try again later' },
+});
+
+app.use('/api/', apiLimiter);
+app.use(['/api/auth/login', '/api/auth/signup'], authLimiter);
+app.use('/api/ai', aiLimiter);
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(cookieSession({

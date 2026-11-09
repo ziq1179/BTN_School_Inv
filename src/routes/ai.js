@@ -3,15 +3,7 @@ import prisma from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getPlan } from '../plans.js';
 import { groqChat, groqEnabled, GROQ_MODEL } from '../groq.js';
-
-// Validate inputs before gating so malformed requests get 400, not 503/403
-const requireBodyString = (field, min = 3) => (req, res, next) => {
-    const value = req.body?.[field];
-    if (!value || typeof value !== 'string' || value.trim().length < min) {
-        return res.status(400).json({ success: false, error: `${field} is required (min ${min} chars)` });
-    }
-    next();
-};
+import { validate, chatSchema, describeSchema } from '../validation.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -117,7 +109,7 @@ Be concise, specific with numbers, and action-oriented. Use short paragraphs or 
 Currency is PKR unless the data says otherwise.`;
 
 // POST /api/ai/chat - natural-language Q&A over this tenant's live inventory
-router.post('/chat', requireBodyString('question', 3), requirePro, async (req, res) => {
+router.post('/chat', validate(chatSchema), requirePro, async (req, res) => {
     try {
         const { question } = req.body;
 
@@ -194,7 +186,7 @@ router.post('/reorder', requirePro, async (req, res) => {
 });
 
 // POST /api/ai/describe - generate a catalog description from item name/category
-router.post('/describe', requireBodyString('name', 1), requirePro, async (req, res) => {
+router.post('/describe', validate(describeSchema), requirePro, async (req, res) => {
     try {
         const { name, category, size, itemClass, subject } = req.body || {};
         const details = [

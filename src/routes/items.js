@@ -2,6 +2,7 @@ import express from 'express';
 import prisma from '../db.js';
 import { requireAuth, minRole, ROLES } from '../middleware/auth.js';
 import { getPlan } from '../plans.js';
+import { validate, itemCreateSchema, itemUpdateSchema, stockMoveSchema } from '../validation.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -96,7 +97,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/items - Create a new item (tenant-scoped; FREE plan item limit enforced)
-router.post('/', minRole(ROLES.STAFF), async (req, res) => {
+router.post('/', minRole(ROLES.STAFF), validate(itemCreateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
 
@@ -171,7 +172,7 @@ router.post('/', minRole(ROLES.STAFF), async (req, res) => {
 });
 
 // PUT /api/items/:id - Update item details (tenant-scoped)
-router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
+router.put('/:id', minRole(ROLES.STAFF), validate(itemUpdateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const { name, description, size, itemClass, subject, costPrice, salePrice } = req.body;
@@ -199,7 +200,7 @@ router.put('/:id', minRole(ROLES.STAFF), async (req, res) => {
 });
 
 // POST /api/items/:id/stock-in - Add stock (tenant-scoped, atomic)
-router.post('/:id/stock-in', minRole(ROLES.STAFF), async (req, res) => {
+router.post('/:id/stock-in', minRole(ROLES.STAFF), validate(stockMoveSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const { quantity, price, reference } = req.body;
@@ -250,7 +251,7 @@ router.post('/:id/stock-in', minRole(ROLES.STAFF), async (req, res) => {
 });
 
 // POST /api/items/:id/sale - Record a sale (tenant-scoped, atomic, never negative)
-router.post('/:id/sale', minRole(ROLES.STAFF), async (req, res) => {
+router.post('/:id/sale', minRole(ROLES.STAFF), validate(stockMoveSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const { quantity, price, reference } = req.body;
