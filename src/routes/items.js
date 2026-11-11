@@ -1,7 +1,6 @@
 import express from 'express';
 import prisma from '../db.js';
 import { requireAuth, minRole, ROLES } from '../middleware/auth.js';
-import { getPlan } from '../plans.js';
 import { validate, itemCreateSchema, itemUpdateSchema, stockMoveSchema } from '../validation.js';
 
 const router = express.Router();
@@ -96,24 +95,10 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/items - Create a new item (tenant-scoped; FREE plan item limit enforced)
+// POST /api/items - Create a new item (tenant-scoped)
 router.post('/', minRole(ROLES.STAFF), validate(itemCreateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
-
-        const planLimit = await prisma.$transaction(async (tx) => {
-            const tenant = await tx.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
-            const { maxItems } = getPlan(tenant);
-            const count = await tx.item.count({ where: { tenantId } });
-            return { count, maxItems };
-        });
-        if (planLimit.count >= planLimit.maxItems) {
-            return res.status(403).json({
-                success: false,
-                code: 'PLAN_LIMIT',
-                error: `Free plan is limited to ${planLimit.maxItems} items. Upgrade to Pro for unlimited inventory.`,
-            });
-        }
 
         const {
             name, description, categoryId, size, itemClass, subject,

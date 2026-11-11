@@ -14,8 +14,6 @@ import categoryRoutes from './routes/categories.js';
 import itemRoutes from './routes/items.js';
 import transactionRoutes from './routes/transactions.js';
 import settingsRoutes from './routes/settings.js';
-import billingRoutes from './routes/billing.js';
-import stripeWebhookRoutes from './routes/stripe-webhook.js';
 import aiRoutes from './routes/ai.js';
 
 const app = express();
@@ -41,9 +39,6 @@ try {
 }
 
 // ── Middleware ──────────────────────────────────────────────────────────────
-// Stripe webhook must see the raw body — mount BEFORE express.json()
-app.use('/api/stripe', stripeWebhookRoutes);
-
 // Security headers. The app uses inline styles/scripts and third-party CDNs
 // (jsdelivr for Chart.js, Google Fonts) — CSP is scoped to exactly those.
 app.use(helmet({
@@ -137,7 +132,6 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/billing', billingRoutes);
 app.use('/api/ai', aiRoutes);
 
 // ── Health check ────────────────────────────────────────────────────────────

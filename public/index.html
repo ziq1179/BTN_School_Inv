@@ -80,8 +80,6 @@
     </div>
     <div class="topbar-right">
       <div class="live-clock" id="live-clock"></div>
-      <span class="plan-badge" id="plan-badge" title="Your plan"></span>
-      <button class="btn btn-primary btn-sm" id="btn-upgrade" style="display:none">⚡ Upgrade</button>
       <div class="user-menu" id="user-menu">
         <span class="user-name" id="user-name">—</span>
         <span class="user-role" id="user-role"></span>
@@ -288,15 +286,6 @@
 
   <!-- ── AI ASSISTANT PAGE ────────────────────────────────────── -->
   <section class="page" id="page-ai">
-    <div class="card" id="ai-gate" style="display:none">
-      <div class="card-body" style="text-align:center; padding:48px 24px">
-        <div style="font-size:3rem">✨</div>
-        <h2 class="card-title" style="justify-content:center">AI features are part of Pro</h2>
-        <p class="settings-intro" style="margin:8px auto 16px; max-width:420px">Chat with your inventory in plain English, get 30-day insights, smart reorder suggestions, and auto-generated item descriptions.</p>
-        <button class="btn btn-primary" id="btn-ai-upgrade">Upgrade to Pro — $29/mo</button>
-      </div>
-    </div>
-
     <div id="ai-panel">
       <div class="card">
         <div class="card-header"><h2 class="card-title">✨ Ask your inventory</h2></div>
@@ -363,38 +352,6 @@
 
   <!-- ── SETTINGS PAGE (Admin only) ───────────────────────────────── -->
   <section class="page" id="page-settings">
-    <div class="card" id="billing-card">
-      <div class="card-header">
-        <h2 class="card-title">Plan &amp; billing</h2>
-        <span class="plan-badge" id="billing-plan-badge"></span>
-      </div>
-      <div class="card-body">
-        <div class="billing-plan-row">
-          <div>
-            <div class="billing-plan-name" id="billing-plan-name">—</div>
-            <div class="billing-plan-status" id="billing-plan-status">—</div>
-          </div>
-        </div>
-        <div class="billing-usage">
-          <div class="billing-usage-row">
-            <span class="billing-usage-label">Items</span>
-            <div class="usage-bar"><div class="usage-fill" id="usage-fill-items"></div></div>
-            <span class="billing-usage-text" id="usage-text-items">—</span>
-          </div>
-          <div class="billing-usage-row">
-            <span class="billing-usage-label">Users</span>
-            <div class="usage-bar"><div class="usage-fill" id="usage-fill-users"></div></div>
-            <span class="billing-usage-text" id="usage-text-users">—</span>
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-primary" id="btn-billing-upgrade">Upgrade to Pro — $29/mo</button>
-          <button class="btn btn-ghost" id="btn-billing-manage" style="display:none">Manage billing</button>
-        </div>
-        <p class="form-hint" id="billing-note">Free plan: 50 items, 3 users, no AI. Pro unlocks unlimited items &amp; users plus all AI features.</p>
-      </div>
-    </div>
-
     <div class="card">
       <div class="card-header">
         <h2 class="card-title">School branding</h2>

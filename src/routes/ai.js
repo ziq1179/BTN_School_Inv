@@ -1,28 +1,15 @@
 import express from 'express';
 import prisma from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getPlan } from '../plans.js';
 import { groqChat, groqEnabled, GROQ_MODEL } from '../groq.js';
 import { validate, chatSchema, describeSchema } from '../validation.js';
 
 const router = express.Router();
 router.use(requireAuth);
 
-// Every AI endpoint requires the PRO plan (and a configured Groq key)
-async function requirePro(req, res, next) {
+// AI endpoints require a configured Groq key (all plans get AI)
+async function requireAiConfigured(req, res, next) {
     try {
-        const tenant = await prisma.tenant.findUnique({
-            where: { id: req.session.tenantId },
-            select: { plan: true, status: true },
-        });
-        const plan = getPlan(tenant);
-        if (!plan.ai) {
-            return res.status(403).json({
-                success: false,
-                code: 'AI_REQUIRES_PRO',
-                error: 'AI features are part of the Pro plan. Upgrade to unlock them.',
-            });
-        }
         if (!groqEnabled()) {
             return res.status(503).json({
                 success: false,
@@ -109,7 +96,7 @@ Be concise, specific with numbers, and action-oriented. Use short paragraphs or 
 Currency is PKR unless the data says otherwise.`;
 
 // POST /api/ai/chat - natural-language Q&A over this tenant's live inventory
-router.post('/chat', validate(chatSchema), requirePro, async (req, res) => {
+router.post('/chat', validate(chatSchema), requireAiConfigured, async (req, res) => {
     try {
         const { question } = req.body;
 
@@ -128,7 +115,7 @@ router.post('/chat', validate(chatSchema), requirePro, async (req, res) => {
 });
 
 // POST /api/ai/insights - analyst summary of the last 30 days
-router.post('/insights', requirePro, async (req, res) => {
+router.post('/insights', requireAiConfigured, async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const context = await buildTenantContext(tenantId);
@@ -145,7 +132,7 @@ router.post('/insights', requirePro, async (req, res) => {
 });
 
 // POST /api/ai/reorder - suggested reorder quantities based on 60-day velocity
-router.post('/reorder', requirePro, async (req, res) => {
+router.post('/reorder', requireAiConfigured, async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
         const since60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
@@ -186,7 +173,7 @@ router.post('/reorder', requirePro, async (req, res) => {
 });
 
 // POST /api/ai/describe - generate a catalog description from item name/category
-router.post('/describe', validate(describeSchema), requirePro, async (req, res) => {
+router.post('/describe', validate(describeSchema), requireAiConfigured, async (req, res) => {
     try {
         const { name, category, size, itemClass, subject } = req.body || {};
         const details = [

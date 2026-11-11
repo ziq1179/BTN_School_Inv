@@ -2,7 +2,6 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../db.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
-import { getPlan } from '../plans.js';
 import { validate, userCreateSchema, userUpdateSchema } from '../validation.js';
 
 const router = express.Router();
@@ -26,21 +25,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST /api/users - Create user (tenant-scoped; FREE plan user limit enforced)
+// POST /api/users - Create user (tenant-scoped)
 router.post('/', validate(userCreateSchema), async (req, res) => {
     try {
         const tenantId = req.session.tenantId;
-
-        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { plan: true } });
-        const { maxUsers } = getPlan(tenant);
-        const count = await prisma.user.count({ where: { tenantId } });
-        if (count >= maxUsers) {
-            return res.status(403).json({
-                success: false,
-                code: 'PLAN_LIMIT',
-                error: `Free plan is limited to ${maxUsers} users. Upgrade to Pro to add your whole team.`,
-            });
-        }
 
         const { email, password, name, role } = req.body;
         if (!email || !password) {

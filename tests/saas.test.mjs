@@ -152,28 +152,17 @@ test('sale decrements stock and oversell is rejected', async () => {
   assert.equal(after.data?.data?.stock, item.stock - 2, 'stock unchanged after rejected sale');
 });
 
-test('FREE plan user limit blocks the 4th user', async () => {
-  await api('beta', 'POST', '/api/users', { email: 'b1@beta-test.school', password: 'beta1234', role: 'STAFF', name: 'B1' });
-  const second = await api('beta', 'POST', '/api/users', { email: 'b2@beta-test.school', password: 'beta1234', role: 'STAFF', name: 'B2' });
-  assert.equal(second.status, 201, 'second extra user allowed (3 total)');
-  const third = await api('beta', 'POST', '/api/users', { email: 'b3@beta-test.school', password: 'beta1234', role: 'VIEWER', name: 'B3' });
-  assert.equal(third.status, 403);
-  assert.equal(third.data?.code, 'PLAN_LIMIT');
+test('tenants can add unlimited users (no caps)', async () => {
+  for (const [i, email] of ['b1@beta-test.school', 'b2@beta-test.school', 'b3@beta-test.school', 'b4@beta-test.school'].entries()) {
+    const r = await api('beta', 'POST', '/api/users', { email, password: 'beta1234', role: 'STAFF', name: `B${i + 1}` });
+    assert.equal(r.status, 201, `user ${email} should be created`);
+  }
 });
 
-test('AI endpoints are gated to PRO (403 for FREE)', async () => {
+test('AI endpoints answer when key is set, 503 otherwise', async () => {
+  const hasKey = Boolean(process.env.GROQ_API_KEY);
   const chat = await api('beta', 'POST', '/api/ai/chat', { question: 'what is low in stock?' });
-  assert.equal(chat.status, 403);
-  assert.equal(chat.data?.code, 'AI_REQUIRES_PRO');
-});
-
-test('billing status reflects plan and usage', async () => {
-  const status = await api('beta', 'GET', '/api/billing/status');
-  assert.equal(status.status, 200);
-  assert.equal(status.data?.data?.plan, 'FREE');
-  assert.equal(status.data?.data?.maxItems, 50);
-  assert.equal(status.data?.data?.maxUsers, 3);
-  assert.equal(status.data?.data?.usage?.users, 3);
+  assert.equal(chat.status, hasKey ? 200 : 503, 'chat status depends on GROQ_API_KEY');
 });
 
 test('tenant branding is isolated', async () => {
